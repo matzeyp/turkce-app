@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>türkçe</title>
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icon.svg">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main>
+    <section id="view-decks" hidden>
+      <h1>türkçe</h1>
+      <div id="deck-lists"></div>
+    </section>
+
+    <section id="view-review" hidden>
+      <div id="review-progress"></div>
+      <div id="card" lang="tr">
+        <div id="card-front"></div>
+        <div id="card-back" hidden>
+          <div id="card-answer"></div>
+          <div id="card-explanation" lang="en"></div>
+        </div>
+      </div>
+      <div id="flip-hint">tap card to flip</div>
+      <div id="grade-row" hidden>
+        <button class="grade" data-grade="0">0<span>blackout</span></button>
+        <button class="grade" data-grade="1">1<span>wrong</span></button>
+        <button class="grade" data-grade="2">2<span>effort</span></button>
+        <button class="grade" data-grade="3">3<span>easy</span></button>
+      </div>
+      <div id="session-done" hidden>
+        <p id="session-summary"></p>
+        <p id="session-sync-status"></p>
+        <button id="btn-back-to-decks">back to decks</button>
+      </div>
+    </section>
+
+    <section id="view-settings" hidden>
+      <h1>settings</h1>
+      <label>GitHub username
+        <input id="set-owner" autocapitalize="none" autocorrect="off" placeholder="matzeyp">
+      </label>
+      <label>Data repo name
+        <input id="set-repo" autocapitalize="none" autocorrect="off" placeholder="turkce">
+      </label>
+      <label>Fine-grained PAT <small>(contents read/write on the data repo; stored only in this browser's localStorage)</small>
+        <input id="set-pat" type="password" autocapitalize="none" autocorrect="off">
+      </label>
+      <button id="btn-save-settings">save</button>
+      <hr>
+      <button id="btn-sync">sync now</button>
+      <p id="sync-status"></p>
+    </section>
+  </main>
+
+  <nav>
+    <button data-view="decks">decks</button>
+    <button data-view="review">review</button>
+    <button data-view="settings">settings</button>
+  </nav>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

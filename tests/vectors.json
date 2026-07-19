@@ -1,0 +1,308 @@
+{
+  "first_g0": [
+    {
+      "grade": 0,
+      "date": "2026-01-01",
+      "stability": 0.4872,
+      "difficulty": 7.6214,
+      "due": "2026-01-01"
+    }
+  ],
+  "first_g1": [
+    {
+      "grade": 1,
+      "date": "2026-01-01",
+      "stability": 0.4872,
+      "difficulty": 7.6214,
+      "due": "2026-01-02"
+    }
+  ],
+  "first_g2": [
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1618,
+      "due": "2026-01-05"
+    }
+  ],
+  "first_g3": [
+    {
+      "grade": 3,
+      "date": "2026-01-01",
+      "stability": 13.8206,
+      "difficulty": 3.932,
+      "due": "2026-01-15"
+    }
+  ],
+  "chain_goods": [
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1618,
+      "due": "2026-01-05"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-05",
+      "stability": 14.8805,
+      "difficulty": 5.1237,
+      "due": "2026-01-20"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-20",
+      "stability": 49.9732,
+      "difficulty": 5.0868,
+      "due": "2026-03-11"
+    },
+    {
+      "grade": 2,
+      "date": "2026-02-15",
+      "stability": 104.4929,
+      "difficulty": 5.051,
+      "due": "2026-05-30"
+    }
+  ],
+  "chain_easies": [
+    {
+      "grade": 3,
+      "date": "2026-01-01",
+      "stability": 13.8206,
+      "difficulty": 3.932,
+      "due": "2026-01-15"
+    },
+    {
+      "grade": 3,
+      "date": "2026-01-10",
+      "stability": 98.956,
+      "difficulty": 3.0623,
+      "due": "2026-04-19"
+    },
+    {
+      "grade": 3,
+      "date": "2026-02-10",
+      "stability": 355.909,
+      "difficulty": 2.2196,
+      "due": "2027-02-01"
+    },
+    {
+      "grade": 3,
+      "date": "2026-05-01",
+      "stability": 970.2949,
+      "difficulty": 1.403,
+      "due": "2028-12-26"
+    }
+  ],
+  "lapse_recover": [
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1618,
+      "due": "2026-01-05"
+    },
+    {
+      "grade": 0,
+      "date": "2026-01-04",
+      "stability": 1.3501,
+      "difficulty": 6.863,
+      "due": "2026-01-04"
+    },
+    {
+      "grade": 0,
+      "date": "2026-01-04",
+      "stability": 0.5683,
+      "difficulty": 8.5115,
+      "due": "2026-01-04"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-05",
+      "stability": 2.0826,
+      "difficulty": 8.3695,
+      "due": "2026-01-07"
+    },
+    {
+      "grade": 3,
+      "date": "2026-01-12",
+      "stability": 32.9849,
+      "difficulty": 7.3623,
+      "due": "2026-02-14"
+    }
+  ],
+  "near_miss": [
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1618,
+      "due": "2026-01-05"
+    },
+    {
+      "grade": 1,
+      "date": "2026-01-06",
+      "stability": 1.4503,
+      "difficulty": 6.863,
+      "due": "2026-01-07"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-07",
+      "stability": 3.8254,
+      "difficulty": 6.7721,
+      "due": "2026-01-11"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-15",
+      "stability": 18.6971,
+      "difficulty": 6.6841,
+      "due": "2026-02-03"
+    }
+  ],
+  "same_day_repeat": [
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1618,
+      "due": "2026-01-05"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1237,
+      "due": "2026-01-05"
+    }
+  ],
+  "long_gap": [
+    {
+      "grade": 3,
+      "date": "2026-01-01",
+      "stability": 13.8206,
+      "difficulty": 3.932,
+      "due": "2026-01-15"
+    },
+    {
+      "grade": 2,
+      "date": "2026-12-01",
+      "stability": 332.1226,
+      "difficulty": 3.932,
+      "due": "2027-10-29"
+    }
+  ],
+  "early_review": [
+    {
+      "grade": 2,
+      "date": "2026-01-01",
+      "stability": 3.7145,
+      "difficulty": 5.1618,
+      "due": "2026-01-05"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-02",
+      "stability": 6.7508,
+      "difficulty": 5.1237,
+      "due": "2026-01-09"
+    },
+    {
+      "grade": 3,
+      "date": "2026-01-03",
+      "stability": 16.164,
+      "difficulty": 4.2171,
+      "due": "2026-01-19"
+    }
+  ],
+  "all_grades": [
+    {
+      "grade": 1,
+      "date": "2026-01-01",
+      "stability": 0.4872,
+      "difficulty": 7.6214,
+      "due": "2026-01-02"
+    },
+    {
+      "grade": 2,
+      "date": "2026-01-02",
+      "stability": 2.488,
+      "difficulty": 7.507,
+      "due": "2026-01-04"
+    },
+    {
+      "grade": 3,
+      "date": "2026-01-08",
+      "stability": 36.7911,
+      "difficulty": 6.5265,
+      "due": "2026-02-14"
+    },
+    {
+      "grade": 0,
+      "date": "2026-02-01",
+      "stability": 4.4776,
+      "difficulty": 8.1854,
+      "due": "2026-02-01"
+    },
+    {
+      "grade": 2,
+      "date": "2026-02-01",
+      "stability": 4.4776,
+      "difficulty": 8.0535,
+      "due": "2026-02-05"
+    },
+    {
+      "grade": 2,
+      "date": "2026-02-05",
+      "stability": 10.2771,
+      "difficulty": 7.9257,
+      "due": "2026-02-15"
+    }
+  ],
+  "hard_slog": [
+    {
+      "grade": 1,
+      "date": "2026-03-01",
+      "stability": 0.4872,
+      "difficulty": 7.6214,
+      "due": "2026-03-02"
+    },
+    {
+      "grade": 1,
+      "date": "2026-03-02",
+      "stability": 0.3224,
+      "difficulty": 9.2464,
+      "due": "2026-03-03"
+    },
+    {
+      "grade": 2,
+      "date": "2026-03-03",
+      "stability": 1.3884,
+      "difficulty": 9.0817,
+      "due": "2026-03-04"
+    },
+    {
+      "grade": 1,
+      "date": "2026-03-05",
+      "stability": 0.7108,
+      "difficulty": 10.0,
+      "due": "2026-03-06"
+    },
+    {
+      "grade": 2,
+      "date": "2026-03-06",
+      "stability": 1.3962,
+      "difficulty": 9.8119,
+      "due": "2026-03-07"
+    },
+    {
+      "grade": 2,
+      "date": "2026-03-10",
+      "stability": 3.9363,
+      "difficulty": 9.6296,
+      "due": "2026-03-14"
+    }
+  ]
+}

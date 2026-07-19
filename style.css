@@ -1,0 +1,138 @@
+:root {
+  --bg: #f5f2ec;
+  --fg: #1c1a17;
+  --muted: #7a746a;
+  --card-bg: #ffffff;
+  --accent: #b3452f;
+  --line: #dcd6cb;
+  --btn-bg: #e9e4da;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161412;
+    --fg: #ece7de;
+    --muted: #92897c;
+    --card-bg: #221f1b;
+    --accent: #d96a4f;
+    --line: #35302a;
+    --btn-bg: #2b2823;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; }
+html, body { height: 100%; }
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+  overflow-y: auto;
+  padding: max(env(safe-area-inset-top), 16px) 16px 16px;
+}
+h1 { font-size: 1.3rem; margin-bottom: 12px; }
+
+nav {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--line);
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg);
+}
+nav button {
+  padding: 14px 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+nav button.active { color: var(--accent); font-weight: 600; }
+
+/* deck picker */
+.deck-group { margin-bottom: 18px; }
+.deck-group h2 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+.deck-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 14px 12px;
+  margin-bottom: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card-bg);
+  color: var(--fg);
+  font-size: 1rem;
+  text-align: left;
+}
+.deck-item .count { color: var(--accent); font-weight: 600; }
+.deck-item:disabled { opacity: 0.45; }
+
+/* review */
+#review-progress { color: var(--muted); font-size: 0.85rem; margin-bottom: 10px; }
+#card {
+  background: var(--card-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 28px 20px;
+  min-height: 45vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 16px;
+}
+#card-front { font-size: 1.5rem; line-height: 1.35; text-align: center; }
+#card-answer { font-size: 1.25rem; line-height: 1.35; text-align: center; font-weight: 600; }
+#card-explanation { font-size: 0.95rem; line-height: 1.5; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+#flip-hint { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 12px; }
+
+#grade-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+#grade-row button {
+  padding: 12px 0 10px;
+  font-size: 1.3rem;
+  font-weight: 700;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  min-height: 64px;
+}
+#grade-row button span { display: block; font-size: 0.7rem; font-weight: 400; color: var(--muted); }
+#grade-row button:active { background: var(--accent); color: #fff; }
+
+#session-done { text-align: center; margin-top: 24px; }
+#session-done button, #view-settings button {
+  margin-top: 14px;
+  padding: 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  font-size: 1rem;
+}
+
+/* settings */
+#view-settings label { display: block; margin-bottom: 12px; font-size: 0.9rem; color: var(--muted); }
+#view-settings label small { display: block; }
+#view-settings input {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card-bg);
+  color: var(--fg);
+}
+#view-settings hr { border: 0; border-top: 1px solid var(--line); margin: 18px 0; }
+#sync-status { margin-top: 10px; font-size: 0.9rem; color: var(--muted); white-space: pre-line; }
