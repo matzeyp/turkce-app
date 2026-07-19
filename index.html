@@ -19,6 +19,17 @@
     </section>
 
     <section id="view-review" hidden>
+      <div id="session-setup" hidden>
+        <h1>start session</h1>
+        <p id="setup-desc"></p>
+        <fieldset id="setup-direction">
+          <label class="radio"><input type="radio" name="direction" value="mixed" checked> mixed — each word once, random direction</label>
+          <label class="radio"><input type="radio" name="direction" value="tr-en"> Turkish → English</label>
+          <label class="radio"><input type="radio" name="direction" value="en-tr"> English → Turkish</label>
+        </fieldset>
+        <small>direction applies to vocab cards; breakdown/grammar cards are unaffected</small>
+        <button id="btn-start-session">start</button>
+      </div>
       <div id="review-progress"></div>
       <div id="card" lang="tr">
         <div id="card-front"></div>

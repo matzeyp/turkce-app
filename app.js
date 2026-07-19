@@ -34,6 +34,48 @@ function effectiveReviews() {
   return reviews;
 }
 
+const isVocab = (c) => c.type === "vocab_recognition" || c.type === "vocab_production";
+
+function allVocabCards(source) {
+  return deck.filter((c) => isVocab(c) && c.source_ids.includes(source));
+}
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// direction: 'mixed' keeps each word once (random direction when both exist),
+// 'tr-en' keeps only recognition cards, 'en-tr' only production. Non-vocab
+// cards always pass through.
+function applyDirection(cards, direction) {
+  if (direction === "tr-en") return cards.filter((c) => !isVocab(c) || c.type === "vocab_recognition");
+  if (direction === "en-tr") return cards.filter((c) => !isVocab(c) || c.type === "vocab_production");
+  const result = [];
+  const slotByWord = new Map(); // base card id (word) -> index in result
+  for (const c of cards) {
+    if (!isVocab(c)) { result.push(c); continue; }
+    const word = c.id.replace(/_(recog|prod)$/, "");
+    if (!slotByWord.has(word)) {
+      slotByWord.set(word, result.length);
+      result.push(c);
+    } else if (Math.random() < 0.5) {
+      result[slotByWord.get(word)] = c;
+    }
+  }
+  return result;
+}
+
+function buildSessionQueue(filter, direction) {
+  const cards = filter.practiceAll
+    ? shuffle(allVocabCards(filter.source))
+    : dueQueue(filter);
+  return applyDirection(cards, direction);
+}
+
 function dueQueue(filter = {}) {
   const reviews = effectiveReviews();
   const today = todayIso();
@@ -168,10 +210,28 @@ function setSyncStatus(text) {
 // ---------------------------------------------------------------- review session
 
 let session = { queue: [], reviewed: new Set(), flipped: false, active: false };
+let setupFilter = {};
 
-function startSession(filter) {
-  session = { queue: dueQueue(filter), reviewed: new Set(), flipped: false, active: true };
+function openSetup(filter) {
+  setupFilter = filter;
+  session.active = false;
   showView("review");
+  for (const id of ["card", "grade-row", "session-done"]) document.getElementById(id).hidden = true;
+  document.getElementById("flip-hint").hidden = true;
+  document.getElementById("review-progress").textContent = "";
+  const desc = filter.practiceAll ? `${filter.source} — all vocab`
+    : filter.source ? `${filter.source} — due`
+    : filter.type ? `${filter.type.replace("_", " ")} — due`
+    : filter.concept ? `${filter.concept} — due`
+    : "all due + new";
+  document.getElementById("setup-desc").textContent = desc;
+  document.getElementById("session-setup").hidden = false;
+}
+
+function startSession() {
+  const direction = document.querySelector("input[name=direction]:checked").value;
+  document.getElementById("session-setup").hidden = true;
+  session = { queue: buildSessionQueue(setupFilter, direction), reviewed: new Set(), flipped: false, active: true };
   renderCard();
 }
 
@@ -242,9 +302,17 @@ function renderDecks() {
     `<button class="deck-item" data-filter='${JSON.stringify(filter)}' ${count === 0 ? "disabled" : ""}>
        <span lang="tr">${label}</span><span class="count">${count}</span></button>`;
 
+  const vocabSources = new Map();
+  for (const card of deck) {
+    if (isVocab(card)) for (const s of card.source_ids)
+      vocabSources.set(s, (vocabSources.get(s) ?? 0) + 1);
+  }
+
   groups.push(`<div class="deck-group">${item("all due + new", all.length, {})}</div>`);
   if (sources.size) groups.push(`<div class="deck-group"><h2>by source</h2>${
     [...sources].map(([s, n]) => item(s, n, { source: s })).join("")}</div>`);
+  if (vocabSources.size) groups.push(`<div class="deck-group"><h2>practice — all vocab of a source</h2>${
+    [...vocabSources].map(([s, n]) => item(s, n, { source: s, practiceAll: true })).join("")}</div>`);
   if (types.size) groups.push(`<div class="deck-group"><h2>by card type</h2>${
     [...types].map(([t, n]) => item(t.replace("_", " "), n, { type: t })).join("")}</div>`);
   if (concepts.size) groups.push(`<div class="deck-group"><h2>by concept</h2>${
@@ -253,7 +321,7 @@ function renderDecks() {
 
   el.innerHTML = groups.join("");
   el.querySelectorAll(".deck-item").forEach((btn) =>
-    btn.addEventListener("click", () => startSession(JSON.parse(btn.dataset.filter))));
+    btn.addEventListener("click", () => openSetup(JSON.parse(btn.dataset.filter))));
 }
 
 // ---------------------------------------------------------------- views & wiring
@@ -266,11 +334,19 @@ function showView(name) {
     b.classList.toggle("active", b.dataset.view === name));
   if (name === "decks") renderDecks();
   if (name === "settings") setSyncStatus(syncStatusLine());
-  if (name === "review" && !session.active) startSession({});
 }
 
 document.querySelectorAll("nav button").forEach((b) =>
-  b.addEventListener("click", () => { if (b.dataset.view !== "review") session.active = false; showView(b.dataset.view); }));
+  b.addEventListener("click", () => {
+    if (b.dataset.view === "review") {
+      if (session.active) showView("review");
+      else openSetup({});
+    } else {
+      session.active = false;
+      showView(b.dataset.view);
+    }
+  }));
+document.getElementById("btn-start-session").addEventListener("click", startSession);
 document.getElementById("card").addEventListener("click", flip);
 document.querySelectorAll("#grade-row .grade").forEach((b) =>
   b.addEventListener("click", () => grade(Number(b.dataset.grade))));
