@@ -7,6 +7,7 @@ import { applyReview, todayIso } from "./fsrs.js";
 const LS = {
   settings: "turkce.settings",
   deck: "turkce.deck",
+  labels: "turkce.labels",      // id -> display name (source titles, concept names)
   base: "turkce.reviewsBase",   // last-synced remote reviews.json + its blob sha
   pending: "turkce.pending",    // offline-safe grade log, replayed onto base
   lastSync: "turkce.lastSync",
@@ -20,6 +21,8 @@ const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
 let settings = load(LS.settings, { owner: "matzeyp", repo: "turkce", pat: "" });
 let deck = load(LS.deck, []);
+let labels = load(LS.labels, {});
+const label = (id) => labels[id] ?? id;
 let base = load(LS.base, { data: {}, sha: null });
 let pending = load(LS.pending, []);
 
@@ -154,6 +157,16 @@ async function sync() {
     deck = deckRes.data;
     save(LS.deck, deck);
 
+    // display names for the deck picker (read-only; cosmetic, so failures keep old ones)
+    try {
+      const [src, con] = await Promise.all([
+        ghGetJson("data/sources.json"), ghGetJson("data/concepts.json")]);
+      labels = {};
+      for (const s of src.data) labels[s.id] = s.artist ? `${s.title} — ${s.artist}` : s.title;
+      for (const c of con.data) labels[c.id] = c.name;
+      save(LS.labels, labels);
+    } catch { /* ignore */ }
+
     let remote = await ghGetJson("data/reviews.json");
     if (pending.length > 0) {
       const n = new Set(pending.map((p) => p.card_id)).size;
@@ -224,11 +237,11 @@ function openSetup(filter) {
   for (const id of ["card", "grade-row", "session-done", "btn-exit-session"]) document.getElementById(id).hidden = true;
   document.getElementById("flip-hint").hidden = true;
   document.getElementById("review-progress").textContent = "";
-  const desc = filter.practiceAll === "concepts" ? `${filter.source} — all concepts`
-    : filter.practiceAll ? `${filter.source} — all vocab`
-    : filter.source ? `${filter.source} — due`
+  const desc = filter.practiceAll === "concepts" ? `${label(filter.source)} — all concepts`
+    : filter.practiceAll ? `${label(filter.source)} — all vocab`
+    : filter.source ? `${label(filter.source)} — due`
     : filter.type ? `${filter.type.replace("_", " ")} — due`
-    : filter.concept ? `${filter.concept} — due`
+    : filter.concept ? `${label(filter.concept)} — due`
     : "all due + new";
   document.getElementById("setup-desc").textContent = desc;
   const noVocab = filter.practiceAll === "concepts"; // direction is meaningless without vocab cards
@@ -317,9 +330,10 @@ function renderDecks() {
     if (card.concept_id) concepts.set(card.concept_id, (concepts.get(card.concept_id) ?? 0) + 1);
   }
 
-  const item = (label, count, filter) =>
+  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+  const item = (text, count, filter) =>
     `<button class="deck-item" data-filter='${JSON.stringify(filter)}' ${count === 0 ? "disabled" : ""}>
-       <span lang="tr">${label}</span><span class="count">${count}</span></button>`;
+       <span lang="tr">${esc(text)}</span><span class="count">${count}</span></button>`;
 
   const vocabSources = new Map();
   const conceptSources = new Map();
@@ -330,15 +344,15 @@ function renderDecks() {
 
   groups.push(`<div class="deck-group">${item("all due + new", all.length, {})}</div>`);
   if (sources.size) groups.push(`<div class="deck-group"><h2>by source</h2>${
-    [...sources].map(([s, n]) => item(s, n, { source: s })).join("")}</div>`);
+    [...sources].map(([s, n]) => item(label(s), n, { source: s })).join("")}</div>`);
   if (vocabSources.size) groups.push(`<div class="deck-group"><h2>practice — all vocab of a source</h2>${
-    [...vocabSources].map(([s, n]) => item(s, n, { source: s, practiceAll: true })).join("")}</div>`);
+    [...vocabSources].map(([s, n]) => item(label(s), n, { source: s, practiceAll: true })).join("")}</div>`);
   if (conceptSources.size) groups.push(`<div class="deck-group"><h2>practice — all concepts of a source</h2>${
-    [...conceptSources].map(([s, n]) => item(s, n, { source: s, practiceAll: "concepts" })).join("")}</div>`);
+    [...conceptSources].map(([s, n]) => item(label(s), n, { source: s, practiceAll: "concepts" })).join("")}</div>`);
   if (types.size) groups.push(`<div class="deck-group"><h2>by card type</h2>${
     [...types].map(([t, n]) => item(t.replace("_", " "), n, { type: t })).join("")}</div>`);
   if (concepts.size) groups.push(`<div class="deck-group"><h2>by concept</h2>${
-    [...concepts].map(([c, n]) => item(c, n, { concept: c })).join("")}</div>`);
+    [...concepts].map(([c, n]) => item(label(c), n, { concept: c })).join("")}</div>`);
   if (deck.length === 0) groups.push(`<p>no deck cached yet — sync in settings.</p>`);
 
   el.innerHTML = groups.join("");
