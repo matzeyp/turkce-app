@@ -12,8 +12,8 @@
     {
       "grade": 1,
       "date": "2026-01-01",
-      "stability": 0.4872,
-      "difficulty": 7.6214,
+      "stability": 1.4003,
+      "difficulty": 6.3916,
       "due": "2026-01-02"
     }
   ],
@@ -143,23 +143,23 @@
     {
       "grade": 1,
       "date": "2026-01-06",
-      "stability": 1.4503,
-      "difficulty": 6.863,
-      "due": "2026-01-07"
+      "stability": 6.3468,
+      "difficulty": 5.9934,
+      "due": "2026-01-12"
     },
     {
       "grade": 2,
       "date": "2026-01-07",
-      "stability": 3.8254,
-      "difficulty": 6.7721,
-      "due": "2026-01-11"
+      "stability": 8.8121,
+      "difficulty": 5.9295,
+      "due": "2026-01-16"
     },
     {
       "grade": 2,
       "date": "2026-01-15",
-      "stability": 18.6971,
-      "difficulty": 6.6841,
-      "due": "2026-02-03"
+      "stability": 26.4388,
+      "difficulty": 5.8676,
+      "due": "2026-02-10"
     }
   ],
   "same_day_repeat": [
@@ -221,88 +221,88 @@
     {
       "grade": 1,
       "date": "2026-01-01",
-      "stability": 0.4872,
-      "difficulty": 7.6214,
+      "stability": 1.4003,
+      "difficulty": 6.3916,
       "due": "2026-01-02"
     },
     {
       "grade": 2,
       "date": "2026-01-02",
-      "stability": 2.488,
-      "difficulty": 7.507,
-      "due": "2026-01-04"
+      "stability": 4.038,
+      "difficulty": 6.3154,
+      "due": "2026-01-06"
     },
     {
       "grade": 3,
       "date": "2026-01-08",
-      "stability": 36.7911,
-      "difficulty": 6.5265,
-      "due": "2026-02-14"
+      "stability": 47.8864,
+      "difficulty": 5.3718,
+      "due": "2026-02-25"
     },
     {
       "grade": 0,
       "date": "2026-02-01",
-      "stability": 4.4776,
-      "difficulty": 8.1854,
+      "stability": 4.983,
+      "difficulty": 7.0665,
       "due": "2026-02-01"
     },
     {
       "grade": 2,
       "date": "2026-02-01",
-      "stability": 4.4776,
-      "difficulty": 8.0535,
-      "due": "2026-02-05"
+      "stability": 4.983,
+      "difficulty": 6.9693,
+      "due": "2026-02-06"
     },
     {
       "grade": 2,
       "date": "2026-02-05",
-      "stability": 10.2771,
-      "difficulty": 7.9257,
-      "due": "2026-02-15"
+      "stability": 12.7223,
+      "difficulty": 6.8751,
+      "due": "2026-02-18"
     }
   ],
   "hard_slog": [
     {
       "grade": 1,
       "date": "2026-03-01",
-      "stability": 0.4872,
-      "difficulty": 7.6214,
+      "stability": 1.4003,
+      "difficulty": 6.3916,
       "due": "2026-03-02"
     },
     {
       "grade": 1,
       "date": "2026-03-02",
-      "stability": 0.3224,
-      "difficulty": 9.2464,
-      "due": "2026-03-03"
+      "stability": 1.8883,
+      "difficulty": 7.185,
+      "due": "2026-03-04"
     },
     {
       "grade": 2,
       "date": "2026-03-03",
-      "stability": 1.3884,
-      "difficulty": 9.0817,
-      "due": "2026-03-04"
+      "stability": 4.0461,
+      "difficulty": 7.0842,
+      "due": "2026-03-07"
     },
     {
       "grade": 1,
       "date": "2026-03-05",
-      "stability": 0.7108,
-      "difficulty": 10.0,
-      "due": "2026-03-06"
+      "stability": 4.7581,
+      "difficulty": 7.8562,
+      "due": "2026-03-10"
     },
     {
       "grade": 2,
       "date": "2026-03-06",
-      "stability": 1.3962,
-      "difficulty": 9.8119,
-      "due": "2026-03-07"
+      "stability": 6.3999,
+      "difficulty": 7.7345,
+      "due": "2026-03-12"
     },
     {
       "grade": 2,
       "date": "2026-03-10",
-      "stability": 3.9363,
-      "difficulty": 9.6296,
-      "due": "2026-03-14"
+      "stability": 12.6483,
+      "difficulty": 7.6166,
+      "due": "2026-03-23"
     }
   ]
 }

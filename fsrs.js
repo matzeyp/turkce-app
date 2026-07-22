@@ -1,7 +1,7 @@
 // FSRS scheduler — exact port of scripts/fsrs.py in the turkce data repo.
 // Same FSRS-4.5 parameters, same grade mapping: user grades 0-3 where
-// 0 (blackout) and 1 (wrong but recognized) -> Again, 2 -> Good, 3 -> Easy;
-// FSRS "Hard" is deliberately unused. Grade 0 reschedules same-day.
+// 0 (didn't get it) -> Again, then successes by ease: 1 (barely) -> Hard,
+// 2 (normal) -> Good, 3 (instant) -> Easy. Grade 0 reschedules same-day.
 // Any change here must keep tests/vectors.json (generated from fsrs.py) green.
 
 const W = [0.4872, 1.4003, 3.7145, 13.8206, 5.1618, 1.2298, 0.8975, 0.031,
@@ -77,7 +77,7 @@ function intervalDays(stability) {
 // Apply one review to a card's state (or null for a never-reviewed card).
 // Mirrors cmd_review in fsrs.py; returns the new state object for reviews.json.
 function applyReview(state, grade, dateIso) {
-  const rating = { 0: 1, 1: 1, 2: 3, 3: 4 }[grade];
+  const rating = { 0: 1, 1: 2, 2: 3, 3: 4 }[grade];
   let stability, difficulty;
   if (state == null) {
     [stability, difficulty] = initState(rating);
