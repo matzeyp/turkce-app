@@ -20,6 +20,7 @@ const load = (k, fallback) => {
 const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
 let settings = load(LS.settings, { owner: "matzeyp", repo: "turkce", pat: "" });
+if (!settings.direction) settings.direction = "mixed";
 let deck = load(LS.deck, []);
 let labels = load(LS.labels, {});
 const label = (id) => labels[id] ?? id;
@@ -258,36 +259,11 @@ function setSyncStatus(text) {
 // ---------------------------------------------------------------- review session
 
 let session = { queue: [], reviewed: new Set(), flipped: false, active: false };
-let setupFilter = {};
 
-function openSetup(filter) {
-  setupFilter = filter;
-  session.active = false;
+// starts immediately — the vocab direction is a global setting, not asked per session
+function startSession(filter) {
+  session = { queue: buildSessionQueue(filter, settings.direction), reviewed: new Set(), flipped: false, active: true };
   showView("review");
-  for (const id of ["card", "grade-row", "session-done", "btn-exit-session"]) document.getElementById(id).hidden = true;
-  document.getElementById("flip-hint").hidden = true;
-  document.getElementById("review-progress").textContent = "";
-  const kindName = filter.kind === "vocab" ? "vocab" : filter.kind === "concept" ? "concepts" : "all";
-  const desc = filter.practiceAll === "concepts" ? `${label(filter.source)} — all concepts`
-    : filter.practiceAll ? `${label(filter.source)} — all vocab`
-    : filter.mode === "learned" ? `${kindName} — repeat learned, weakest first`
-    : filter.mode === "new" ? `${kindName} — new cards`
-    : filter.source ? `${label(filter.source)} — due`
-    : filter.concept ? `${label(filter.concept)} — due`
-    : filter.kind ? `${kindName} — due`
-    : "all due + new";
-  document.getElementById("setup-desc").textContent = desc;
-  // direction is meaningless without vocab cards
-  const noVocab = filter.practiceAll === "concepts" || filter.kind === "concept";
-  document.getElementById("setup-direction").hidden = noVocab;
-  document.getElementById("setup-direction-note").hidden = noVocab;
-  document.getElementById("session-setup").hidden = false;
-}
-
-function startSession() {
-  const direction = document.querySelector("input[name=direction]:checked").value;
-  document.getElementById("session-setup").hidden = true;
-  session = { queue: buildSessionQueue(setupFilter, direction), reviewed: new Set(), flipped: false, active: true };
   renderCard();
 }
 
@@ -427,7 +403,7 @@ function renderDecks() {
 
   el.innerHTML = html;
   el.querySelectorAll("[data-filter]").forEach((btn) =>
-    btn.addEventListener("click", () => openSetup(JSON.parse(btn.dataset.filter))));
+    btn.addEventListener("click", () => startSession(JSON.parse(btn.dataset.filter))));
   el.querySelectorAll("[data-nav]").forEach((btn) =>
     btn.addEventListener("click", () => { picker = JSON.parse(btn.dataset.nav); renderDecks(); }));
 }
@@ -448,14 +424,13 @@ document.querySelectorAll("nav button").forEach((b) =>
   b.addEventListener("click", () => {
     if (b.dataset.view === "review") {
       if (session.active) showView("review");
-      else openSetup({});
+      else startSession({});
     } else {
       session.active = false;
       if (b.dataset.view === "decks") picker = { screen: "home" };
       showView(b.dataset.view);
     }
   }));
-document.getElementById("btn-start-session").addEventListener("click", startSession);
 document.getElementById("btn-exit-session").addEventListener("click", endSession);
 document.getElementById("card").addEventListener("click", flip);
 document.querySelectorAll("#grade-row .grade").forEach((b) =>
@@ -467,6 +442,7 @@ document.getElementById("btn-save-settings").addEventListener("click", () => {
     owner: document.getElementById("set-owner").value.trim() || "matzeyp",
     repo: document.getElementById("set-repo").value.trim() || "turkce",
     pat: document.getElementById("set-pat").value.trim(),
+    direction: document.querySelector("input[name=direction]:checked").value,
   };
   save(LS.settings, settings);
   setSyncStatus("saved.");
@@ -478,6 +454,7 @@ window.addEventListener("online", () => { if (pending.length) sync(); });
 document.getElementById("set-owner").value = settings.owner;
 document.getElementById("set-repo").value = settings.repo;
 document.getElementById("set-pat").value = settings.pat;
+document.querySelector(`input[name=direction][value="${settings.direction}"]`).checked = true;
 showView(settings.pat ? "decks" : "settings");
 if (settings.pat && navigator.onLine) sync();
 

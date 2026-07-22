@@ -18,17 +18,6 @@
     </section>
 
     <section id="view-review" hidden>
-      <div id="session-setup" hidden>
-        <h1>start session</h1>
-        <p id="setup-desc"></p>
-        <fieldset id="setup-direction">
-          <label class="radio"><input type="radio" name="direction" value="mixed" checked> mixed — each word once, random direction</label>
-          <label class="radio"><input type="radio" name="direction" value="tr-en"> Turkish → English</label>
-          <label class="radio"><input type="radio" name="direction" value="en-tr"> English → Turkish</label>
-        </fieldset>
-        <small id="setup-direction-note">direction applies to vocab cards; breakdown/grammar cards are unaffected</small>
-        <button id="btn-start-session">start</button>
-      </div>
       <div id="review-header">
         <div id="review-progress"></div>
         <button id="btn-exit-session" aria-label="end session" hidden>×</button>
@@ -66,6 +55,12 @@
       <label>Fine-grained PAT <small>(contents read/write on the data repo; stored only in this browser's localStorage)</small>
         <input id="set-pat" type="password" autocapitalize="none" autocorrect="off">
       </label>
+      <fieldset id="set-direction">
+        <legend>vocab direction <small>(mixed = each word once per session, random direction; breakdown/grammar cards are unaffected)</small></legend>
+        <label class="radio"><input type="radio" name="direction" value="mixed" checked> mixed</label>
+        <label class="radio"><input type="radio" name="direction" value="tr-en"> Turkish → English</label>
+        <label class="radio"><input type="radio" name="direction" value="en-tr"> English → Turkish</label>
+      </fieldset>
       <button id="btn-save-settings">save</button>
       <hr>
       <button id="btn-sync">sync now</button>

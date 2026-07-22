@@ -20,6 +20,8 @@
 }
 
 * { box-sizing: border-box; margin: 0; }
+/* the hidden attribute must beat author display: flex/grid rules */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   font-family: system-ui, -apple-system, sans-serif;
@@ -98,9 +100,11 @@ nav button.active { color: var(--accent); font-weight: 600; }
 .deck-item .count { color: var(--accent); font-weight: 600; }
 .deck-item:disabled { opacity: 0.45; }
 
-/* session setup */
-#session-setup fieldset { border: 0; padding: 0; margin: 14px 0; }
-#session-setup .radio {
+/* direction radios (settings) */
+#set-direction { border: 0; padding: 0; margin: 14px 0; }
+#set-direction legend { font-size: 0.9rem; color: var(--muted); margin-bottom: 6px; }
+#set-direction legend small { display: block; }
+.radio {
   display: block;
   padding: 12px;
   margin-bottom: 6px;
@@ -108,21 +112,9 @@ nav button.active { color: var(--accent); font-weight: 600; }
   border-radius: 10px;
   background: var(--card-bg);
   font-size: 0.95rem;
+  color: var(--fg);
 }
-#session-setup .radio input { margin-right: 8px; }
-#session-setup small { color: var(--muted); display: block; }
-#session-setup p { color: var(--muted); }
-#btn-start-session {
-  width: 100%;
-  margin-top: 16px;
-  padding: 14px 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-  border: 0;
-  border-radius: 12px;
-  background: var(--accent);
-  color: #fff;
-}
+.radio input { margin-right: 8px; }
 
 /* review */
 #review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; min-height: 32px; }
