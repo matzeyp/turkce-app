@@ -53,6 +53,32 @@ nav button {
 nav button.active { color: var(--accent); font-weight: 600; }
 
 /* deck picker */
+#btn-review-all {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  padding: 18px 16px;
+  margin-bottom: 20px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+}
+#btn-review-all:disabled { opacity: 0.5; }
+#btn-review-all .count { font-weight: 400; font-size: 0.9rem; }
+.picker-header { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; }
+.picker-header h1 { margin-bottom: 0; }
+.back-btn {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 1.7rem;
+  line-height: 1;
+  padding: 0 8px 4px 0;
+}
 .deck-group { margin-bottom: 18px; }
 .deck-group h2 { font-size: 0.85rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
 .deck-item {
@@ -122,7 +148,8 @@ nav button.active { color: var(--accent); font-weight: 600; }
 }
 #card-front { font-size: 1.5rem; line-height: 1.35; text-align: center; }
 #card-answer { font-size: 1.25rem; line-height: 1.35; text-align: center; font-weight: 600; }
-#card-explanation { font-size: 0.95rem; line-height: 1.5; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+#card-explanation { font-size: 0.95rem; line-height: 1.5; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; white-space: pre-line; }
+#card-history { font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 #flip-hint { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 12px; }
 
 #grade-row {

@@ -2,7 +2,7 @@
 // Reads data/deck.json, writes ONLY data/reviews.json, both in the private
 // data repo via the GitHub contents API. All intelligence lives in the data
 // repo's Claude Code layer; this app shows cards, records grades, runs FSRS.
-import { applyReview, todayIso } from "./fsrs.js";
+import { applyReview, retrievability, daysBetween, todayIso } from "./fsrs.js";
 
 const LS = {
   settings: "turkce.settings",
@@ -76,10 +76,40 @@ function applyDirection(cards, direction) {
   return result;
 }
 
+// kind: 'vocab' = the two vocab card types, 'concept' = everything else
+// (morph_breakdown + grammar_generative); every card is exactly one of the two
+const kindMatch = (c, kind) =>
+  !kind ? true : kind === "vocab" ? isVocab(c) : !isVocab(c);
+
+// all reviewed cards of a kind, regardless of due date, weakest first —
+// sorted by FSRS retrievability (current recall probability), which already
+// combines last grade, card difficulty, and time since last review
+function learnedQueue(kind) {
+  const reviews = effectiveReviews();
+  const today = todayIso();
+  return deck
+    .filter((c) => kindMatch(c, kind) && reviews[c.id])
+    .map((c) => {
+      const st = reviews[c.id];
+      const last = st.history[st.history.length - 1].date;
+      return { c, r: retrievability(Math.max(daysBetween(last, today), 0), st.stability) };
+    })
+    .sort((a, b) => a.r - b.r)
+    .map((x) => x.c);
+}
+
+// never-reviewed cards of a kind, in deck order (follows source order)
+function newQueue(kind) {
+  const reviews = effectiveReviews();
+  return deck.filter((c) => kindMatch(c, kind) && !reviews[c.id]);
+}
+
 function buildSessionQueue(filter, direction) {
   const cards =
     filter.practiceAll === "concepts" ? shuffle(allConceptCards(filter.source))
     : filter.practiceAll ? shuffle(allVocabCards(filter.source))
+    : filter.mode === "learned" ? learnedQueue(filter.kind)
+    : filter.mode === "new" ? newQueue(filter.kind)
     : dueQueue(filter);
   return applyDirection(cards, direction);
 }
@@ -90,7 +120,7 @@ function dueQueue(filter = {}) {
   const rows = [];
   for (const card of deck) {
     if (filter.source && !card.source_ids.includes(filter.source)) continue;
-    if (filter.type && card.type !== filter.type) continue;
+    if (filter.kind && !kindMatch(card, filter.kind)) continue;
     if (filter.concept && card.concept_id !== filter.concept) continue;
     const st = reviews[card.id];
     if (!st) rows.push({ card, sort: "1~new" });
@@ -237,14 +267,18 @@ function openSetup(filter) {
   for (const id of ["card", "grade-row", "session-done", "btn-exit-session"]) document.getElementById(id).hidden = true;
   document.getElementById("flip-hint").hidden = true;
   document.getElementById("review-progress").textContent = "";
+  const kindName = filter.kind === "vocab" ? "vocab" : filter.kind === "concept" ? "concepts" : "all";
   const desc = filter.practiceAll === "concepts" ? `${label(filter.source)} — all concepts`
     : filter.practiceAll ? `${label(filter.source)} — all vocab`
+    : filter.mode === "learned" ? `${kindName} — repeat learned, weakest first`
+    : filter.mode === "new" ? `${kindName} — new cards`
     : filter.source ? `${label(filter.source)} — due`
-    : filter.type ? `${filter.type.replace("_", " ")} — due`
     : filter.concept ? `${label(filter.concept)} — due`
+    : filter.kind ? `${kindName} — due`
     : "all due + new";
   document.getElementById("setup-desc").textContent = desc;
-  const noVocab = filter.practiceAll === "concepts"; // direction is meaningless without vocab cards
+  // direction is meaningless without vocab cards
+  const noVocab = filter.practiceAll === "concepts" || filter.kind === "concept";
   document.getElementById("setup-direction").hidden = noVocab;
   document.getElementById("setup-direction-note").hidden = noVocab;
   document.getElementById("session-setup").hidden = false;
@@ -292,6 +326,18 @@ function renderCard() {
   document.getElementById("card-back").hidden = true;
   document.getElementById("card-answer").textContent = card.back;
   document.getElementById("card-explanation").textContent = card.explanation || "";
+  // previous grades, revealed only with the back so the recall attempt stays unprimed
+  const histEl = document.getElementById("card-history");
+  const st = effectiveReviews()[card.id];
+  if (st) {
+    const last = st.history[st.history.length - 1];
+    const days = Math.max(daysBetween(last.date, todayIso()), 0);
+    const ago = days === 0 ? "today" : days === 1 ? "yesterday" : `${days} days ago`;
+    const names = ["fail", "hard", "good", "easy"];
+    const trail = st.history.slice(-5).map((h) => names[h.grade]).join(" · ");
+    histEl.textContent = `${st.history.length}× reviewed, last ${ago} — ${trail}`;
+  }
+  histEl.hidden = !st;
   gradeRow.hidden = true;
 }
 
@@ -316,48 +362,74 @@ function grade(g) {
 
 // ---------------------------------------------------------------- deck picker
 
+let picker = { screen: "home" }; // home | vocab | concepts | sources | {screen:'source', id}
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
+
 function renderDecks() {
   const el = document.getElementById("deck-lists");
-  const all = dueQueue();
-  const groups = [];
-
-  const sources = new Map();
-  const types = new Map();
-  const concepts = new Map();
-  for (const card of all) {
-    for (const s of card.source_ids) sources.set(s, (sources.get(s) ?? 0) + 1);
-    types.set(card.type, (types.get(card.type) ?? 0) + 1);
-    if (card.concept_id) concepts.set(card.concept_id, (concepts.get(card.concept_id) ?? 0) + 1);
+  if (deck.length === 0) {
+    el.innerHTML = `<h1>türkçe</h1><p>no deck cached yet — sync in settings.</p>`;
+    return;
   }
 
-  const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => `&#${ch.charCodeAt(0)};`);
-  const item = (text, count, filter) =>
+  // a data-filter button starts session setup; a data-nav button navigates
+  const filterItem = (text, count, filter) =>
     `<button class="deck-item" data-filter='${JSON.stringify(filter)}' ${count === 0 ? "disabled" : ""}>
        <span lang="tr">${esc(text)}</span><span class="count">${count}</span></button>`;
+  const navItem = (text, badge, nav) =>
+    `<button class="deck-item" data-nav='${JSON.stringify(nav)}'>
+       <span lang="tr">${esc(text)}</span><span class="count">${esc(badge)} ›</span></button>`;
+  const header = (title, backNav) =>
+    `<div class="picker-header"><button class="back-btn" data-nav='${JSON.stringify(backNav)}'>‹</button>
+       <h1 lang="tr">${esc(title)}</h1></div>`;
+  const sectionRows = (kind) => `<div class="deck-group">
+    ${filterItem("due", dueQueue({ kind }).length, { kind })}
+    ${filterItem("repeat learned — weakest first", learnedQueue(kind).length, { kind, mode: "learned" })}
+    ${filterItem("learn new", newQueue(kind).length, { kind, mode: "new" })}
+  </div>`;
 
-  const vocabSources = new Map();
-  const conceptSources = new Map();
-  for (const card of deck) {
-    const m = isVocab(card) ? vocabSources : card.concept_id ? conceptSources : null;
-    if (m) for (const s of card.source_ids) m.set(s, (m.get(s) ?? 0) + 1);
+  const sourceIds = [...new Set(deck.flatMap((c) => c.source_ids))];
+  let html;
+
+  if (picker.screen === "home") {
+    const dueAll = dueQueue({}).length;
+    html = `<h1>türkçe</h1>
+      <button id="btn-review-all" data-filter='{}' ${dueAll === 0 ? "disabled" : ""}>
+        review<span class="count">${dueAll} due + new</span></button>
+      <div class="deck-group"><h2>browse</h2>
+        ${navItem("vocab", `${dueQueue({ kind: "vocab" }).length} due`, { screen: "vocab" })}
+        ${navItem("concepts", `${dueQueue({ kind: "concept" }).length} due`, { screen: "concepts" })}
+        ${navItem("sources", `${sourceIds.length}`, { screen: "sources" })}
+      </div>`;
+  } else if (picker.screen === "vocab") {
+    html = header("vocab", { screen: "home" }) + sectionRows("vocab");
+  } else if (picker.screen === "concepts") {
+    const perConcept = new Map();
+    for (const c of deck) if (c.concept_id) perConcept.set(c.concept_id, 0);
+    for (const c of dueQueue({ kind: "concept" }))
+      if (c.concept_id) perConcept.set(c.concept_id, perConcept.get(c.concept_id) + 1);
+    html = header("concepts", { screen: "home" }) + sectionRows("concept")
+      + `<div class="deck-group"><h2>single concept — due</h2>${
+        [...perConcept].map(([c, n]) => filterItem(label(c), n, { concept: c })).join("")}</div>`;
+  } else if (picker.screen === "sources") {
+    html = header("sources", { screen: "home" }) + `<div class="deck-group">${
+      sourceIds.map((s) => navItem(label(s), `${dueQueue({ source: s }).length} due`,
+        { screen: "source", id: s })).join("")}</div>`;
+  } else { // one source
+    const s = picker.id;
+    html = header(label(s), { screen: "sources" }) + `<div class="deck-group">
+      ${filterItem("due", dueQueue({ source: s }).length, { source: s })}
+      ${filterItem("practice — all vocab", allVocabCards(s).length, { source: s, practiceAll: true })}
+      ${filterItem("practice — all concepts", allConceptCards(s).length, { source: s, practiceAll: "concepts" })}
+    </div>`;
   }
 
-  groups.push(`<div class="deck-group">${item("all due + new", all.length, {})}</div>`);
-  if (sources.size) groups.push(`<div class="deck-group"><h2>by source</h2>${
-    [...sources].map(([s, n]) => item(label(s), n, { source: s })).join("")}</div>`);
-  if (vocabSources.size) groups.push(`<div class="deck-group"><h2>practice — all vocab of a source</h2>${
-    [...vocabSources].map(([s, n]) => item(label(s), n, { source: s, practiceAll: true })).join("")}</div>`);
-  if (conceptSources.size) groups.push(`<div class="deck-group"><h2>practice — all concepts of a source</h2>${
-    [...conceptSources].map(([s, n]) => item(label(s), n, { source: s, practiceAll: "concepts" })).join("")}</div>`);
-  if (types.size) groups.push(`<div class="deck-group"><h2>by card type</h2>${
-    [...types].map(([t, n]) => item(t.replace("_", " "), n, { type: t })).join("")}</div>`);
-  if (concepts.size) groups.push(`<div class="deck-group"><h2>by concept</h2>${
-    [...concepts].map(([c, n]) => item(label(c), n, { concept: c })).join("")}</div>`);
-  if (deck.length === 0) groups.push(`<p>no deck cached yet — sync in settings.</p>`);
-
-  el.innerHTML = groups.join("");
-  el.querySelectorAll(".deck-item").forEach((btn) =>
+  el.innerHTML = html;
+  el.querySelectorAll("[data-filter]").forEach((btn) =>
     btn.addEventListener("click", () => openSetup(JSON.parse(btn.dataset.filter))));
+  el.querySelectorAll("[data-nav]").forEach((btn) =>
+    btn.addEventListener("click", () => { picker = JSON.parse(btn.dataset.nav); renderDecks(); }));
 }
 
 // ---------------------------------------------------------------- views & wiring
@@ -379,6 +451,7 @@ document.querySelectorAll("nav button").forEach((b) =>
       else openSetup({});
     } else {
       session.active = false;
+      if (b.dataset.view === "decks") picker = { screen: "home" };
       showView(b.dataset.view);
     }
   }));
