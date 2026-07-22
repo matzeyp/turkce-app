@@ -40,6 +40,10 @@ function allVocabCards(source) {
   return deck.filter((c) => isVocab(c) && c.source_ids.includes(source));
 }
 
+function allConceptCards(source) {
+  return deck.filter((c) => c.concept_id && c.source_ids.includes(source));
+}
+
 function shuffle(arr) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -70,8 +74,9 @@ function applyDirection(cards, direction) {
 }
 
 function buildSessionQueue(filter, direction) {
-  const cards = filter.practiceAll
-    ? shuffle(allVocabCards(filter.source))
+  const cards =
+    filter.practiceAll === "concepts" ? shuffle(allConceptCards(filter.source))
+    : filter.practiceAll ? shuffle(allVocabCards(filter.source))
     : dueQueue(filter);
   return applyDirection(cards, direction);
 }
@@ -219,12 +224,16 @@ function openSetup(filter) {
   for (const id of ["card", "grade-row", "session-done"]) document.getElementById(id).hidden = true;
   document.getElementById("flip-hint").hidden = true;
   document.getElementById("review-progress").textContent = "";
-  const desc = filter.practiceAll ? `${filter.source} — all vocab`
+  const desc = filter.practiceAll === "concepts" ? `${filter.source} — all concepts`
+    : filter.practiceAll ? `${filter.source} — all vocab`
     : filter.source ? `${filter.source} — due`
     : filter.type ? `${filter.type.replace("_", " ")} — due`
     : filter.concept ? `${filter.concept} — due`
     : "all due + new";
   document.getElementById("setup-desc").textContent = desc;
+  const noVocab = filter.practiceAll === "concepts"; // direction is meaningless without vocab cards
+  document.getElementById("setup-direction").hidden = noVocab;
+  document.getElementById("setup-direction-note").hidden = noVocab;
   document.getElementById("session-setup").hidden = false;
 }
 
@@ -303,9 +312,10 @@ function renderDecks() {
        <span lang="tr">${label}</span><span class="count">${count}</span></button>`;
 
   const vocabSources = new Map();
+  const conceptSources = new Map();
   for (const card of deck) {
-    if (isVocab(card)) for (const s of card.source_ids)
-      vocabSources.set(s, (vocabSources.get(s) ?? 0) + 1);
+    const m = isVocab(card) ? vocabSources : card.concept_id ? conceptSources : null;
+    if (m) for (const s of card.source_ids) m.set(s, (m.get(s) ?? 0) + 1);
   }
 
   groups.push(`<div class="deck-group">${item("all due + new", all.length, {})}</div>`);
@@ -313,6 +323,8 @@ function renderDecks() {
     [...sources].map(([s, n]) => item(s, n, { source: s })).join("")}</div>`);
   if (vocabSources.size) groups.push(`<div class="deck-group"><h2>practice — all vocab of a source</h2>${
     [...vocabSources].map(([s, n]) => item(s, n, { source: s, practiceAll: true })).join("")}</div>`);
+  if (conceptSources.size) groups.push(`<div class="deck-group"><h2>practice — all concepts of a source</h2>${
+    [...conceptSources].map(([s, n]) => item(s, n, { source: s, practiceAll: "concepts" })).join("")}</div>`);
   if (types.size) groups.push(`<div class="deck-group"><h2>by card type</h2>${
     [...types].map(([t, n]) => item(t.replace("_", " "), n, { type: t })).join("")}</div>`);
   if (concepts.size) groups.push(`<div class="deck-group"><h2>by concept</h2>${
