@@ -221,7 +221,7 @@ function openSetup(filter) {
   setupFilter = filter;
   session.active = false;
   showView("review");
-  for (const id of ["card", "grade-row", "session-done"]) document.getElementById(id).hidden = true;
+  for (const id of ["card", "grade-row", "session-done", "btn-exit-session"]) document.getElementById(id).hidden = true;
   document.getElementById("flip-hint").hidden = true;
   document.getElementById("review-progress").textContent = "";
   const desc = filter.practiceAll === "concepts" ? `${filter.source} — all concepts`
@@ -244,6 +244,14 @@ function startSession() {
   renderCard();
 }
 
+// end a running session early: emptying the queue routes through the normal
+// session-done path, which shows the summary and syncs any recorded grades
+function endSession() {
+  if (session.reviewed.size === 0) { session.active = false; showView("decks"); return; }
+  session.queue = [];
+  renderCard();
+}
+
 function currentCard() { return session.queue[0]; }
 
 function renderCard() {
@@ -254,6 +262,7 @@ function renderCard() {
   const hint = document.getElementById("flip-hint");
   if (!card) {
     cardEl.hidden = true; gradeRow.hidden = true; hint.hidden = true;
+    document.getElementById("btn-exit-session").hidden = true;
     doneEl.hidden = false;
     document.getElementById("review-progress").textContent = "";
     document.getElementById("session-summary").textContent =
@@ -262,6 +271,7 @@ function renderCard() {
     return;
   }
   doneEl.hidden = true; cardEl.hidden = false; hint.hidden = false;
+  document.getElementById("btn-exit-session").hidden = false;
   session.flipped = false;
   document.getElementById("review-progress").textContent =
     `${session.queue.length} left · ${card.type.replace("_", " ")}`;
@@ -359,6 +369,7 @@ document.querySelectorAll("nav button").forEach((b) =>
     }
   }));
 document.getElementById("btn-start-session").addEventListener("click", startSession);
+document.getElementById("btn-exit-session").addEventListener("click", endSession);
 document.getElementById("card").addEventListener("click", flip);
 document.querySelectorAll("#grade-row .grade").forEach((b) =>
   b.addEventListener("click", () => grade(Number(b.dataset.grade))));

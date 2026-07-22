@@ -1,6 +1,6 @@
 // Service worker: cache the app shell for offline use. Data (deck/reviews)
 // lives in localStorage, and api.github.com is never intercepted.
-const CACHE = "turkce-app-v4";
+const CACHE = "turkce-app-v5";
 const SHELL = ["./", "./index.html", "./app.js", "./fsrs.js", "./style.css",
                "./manifest.json", "./icon.svg"];
 
