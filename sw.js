@@ -1,8 +1,8 @@
 // Service worker: cache the app shell for offline use. Data (deck/reviews)
 // lives in localStorage, and api.github.com is never intercepted.
-const CACHE = "turkce-app-v8";
-const SHELL = ["./", "./index.html", "./app.js", "./fsrs.js", "./style.css",
-               "./manifest.json", "./icon.svg"];
+const CACHE = "turkce-app-v9";
+const SHELL = ["./", "./index.html", "./app.js", "./fsrs.js", "./builder.js",
+               "./phonology.js", "./style.css", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

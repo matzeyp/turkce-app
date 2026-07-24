@@ -44,6 +44,52 @@
       </div>
     </section>
 
+    <section id="view-builder" hidden>
+      <div id="builder-home">
+        <h1>sentence builder</h1>
+        <div class="deck-group" id="builder-lists"></div>
+      </div>
+      <div id="builder-play" hidden>
+        <div id="builder-header">
+          <div id="builder-progress"></div>
+          <button id="btn-exit-builder" aria-label="end session">×</button>
+        </div>
+        <div id="builder-prompt" lang="en"></div>
+        <div id="builder-sentence" lang="tr"></div>
+        <div id="builder-bank" lang="tr"></div>
+        <div id="builder-actions">
+          <button id="btn-sb-submit">check</button>
+          <button id="btn-sb-reveal">reveal</button>
+        </div>
+        <p id="builder-feedback" lang="tr"></p>
+        <div id="builder-result" hidden>
+          <div id="sb-grade"></div>
+          <div id="sb-answer" lang="tr"></div>
+          <div id="sb-explanation" lang="en"></div>
+          <button id="btn-sb-next">next</button>
+        </div>
+        <div id="builder-done" hidden>
+          <p id="builder-summary"></p>
+          <button id="btn-sb-back">back</button>
+        </div>
+      </div>
+      <div id="builder-sheet" hidden>
+        <div id="sheet-backdrop"></div>
+        <div id="sheet-panel">
+          <div id="sheet-delay" hidden>think first — how would you say it?</div>
+          <div id="sheet-wheels">
+            <ul id="sheet-wheel1" lang="tr"></ul>
+            <ul id="sheet-wheel2" lang="tr"></ul>
+          </div>
+          <div id="sheet-info" hidden></div>
+          <div id="sheet-buttons">
+            <button id="btn-sheet-cancel">cancel</button>
+            <button id="btn-sheet-confirm" disabled>add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <section id="view-settings" hidden>
       <h1>settings</h1>
       <label>GitHub username
@@ -61,6 +107,8 @@
         <label class="radio"><input type="radio" name="direction" value="tr-en"> Turkish → English</label>
         <label class="radio"><input type="radio" name="direction" value="en-tr"> English → Turkish</label>
       </fieldset>
+      <label class="radio"><input type="checkbox" id="set-builder-delay" checked>
+        builder: hide the suffix wheels for a beat <small>(forces a recall attempt before the options appear)</small></label>
       <button id="btn-save-settings">save</button>
       <hr>
       <button id="btn-sync">sync now</button>
@@ -71,6 +119,7 @@
   <nav>
     <button data-view="decks">decks</button>
     <button data-view="review">review</button>
+    <button data-view="builder">builder</button>
     <button data-view="settings">settings</button>
   </nav>
 

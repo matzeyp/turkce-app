@@ -76,7 +76,9 @@ function intervalDays(stability) {
 
 // Apply one review to a card's state (or null for a never-reviewed card).
 // Mirrors cmd_review in fsrs.py; returns the new state object for reviews.json.
-function applyReview(state, grade, dateIso) {
+// Optional detail (sentence_build error-type log) rides along on the history
+// entry; fsrs.py ignores it, so scheduling parity is unaffected.
+function applyReview(state, grade, dateIso, detail) {
   const rating = { 0: 1, 1: 2, 2: 3, 3: 4 }[grade];
   let stability, difficulty;
   if (state == null) {
@@ -91,7 +93,8 @@ function applyReview(state, grade, dateIso) {
     stability: pyRound(stability, 4),
     difficulty: pyRound(difficulty, 4),
     due: addDays(dateIso, ivl),
-    history: [...(state ? state.history : []), { date: dateIso, grade }],
+    history: [...(state ? state.history : []),
+              detail ? { date: dateIso, grade, detail } : { date: dateIso, grade }],
   };
 }
 

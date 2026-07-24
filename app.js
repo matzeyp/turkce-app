@@ -3,11 +3,13 @@
 // data repo via the GitHub contents API. All intelligence lives in the data
 // repo's Claude Code layer; this app shows cards, records grades, runs FSRS.
 import { applyReview, retrievability, daysBetween, todayIso } from "./fsrs.js";
+import { initBuilder, renderBuilderHome, endBuilderSession } from "./builder.js";
 
 const LS = {
   settings: "turkce.settings",
   deck: "turkce.deck",
   labels: "turkce.labels",      // id -> display name (source titles, concept names)
+  morphemes: "turkce.morphemes", // sentence_build tile inventory + slot rules
   base: "turkce.reviewsBase",   // last-synced remote reviews.json + its blob sha
   pending: "turkce.pending",    // offline-safe grade log, replayed onto base
   lastSync: "turkce.lastSync",
@@ -21,6 +23,7 @@ const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 
 let settings = load(LS.settings, { owner: "matzeyp", repo: "turkce", pat: "" });
 if (!settings.direction) settings.direction = "mixed";
+if (settings.builderDelay === undefined) settings.builderDelay = true;
 let deck = load(LS.deck, []);
 let labels = load(LS.labels, {});
 const label = (id) => labels[id] ?? id;
@@ -33,19 +36,21 @@ let pending = load(LS.pending, []);
 function effectiveReviews() {
   const reviews = structuredClone(base.data);
   for (const p of pending) {
-    reviews[p.card_id] = applyReview(reviews[p.card_id] ?? null, p.grade, p.date);
+    reviews[p.card_id] = applyReview(reviews[p.card_id] ?? null, p.grade, p.date, p.detail);
   }
   return reviews;
 }
 
 const isVocab = (c) => c.type === "vocab_recognition" || c.type === "vocab_production";
+// sentence_build cards live in their own tab; the review flow never serves them
+const isBuilder = (c) => c.type === "sentence_build";
 
 function allVocabCards(source) {
   return deck.filter((c) => isVocab(c) && c.source_ids.includes(source));
 }
 
 function allConceptCards(source) {
-  return deck.filter((c) => c.concept_id && c.source_ids.includes(source));
+  return deck.filter((c) => !isBuilder(c) && c.concept_id && c.source_ids.includes(source));
 }
 
 function shuffle(arr) {
@@ -89,7 +94,7 @@ function learnedQueue(kind) {
   const reviews = effectiveReviews();
   const today = todayIso();
   return deck
-    .filter((c) => kindMatch(c, kind) && reviews[c.id])
+    .filter((c) => !isBuilder(c) && kindMatch(c, kind) && reviews[c.id])
     .map((c) => {
       const st = reviews[c.id];
       const last = st.history[st.history.length - 1].date;
@@ -102,7 +107,7 @@ function learnedQueue(kind) {
 // never-reviewed cards of a kind, in deck order (follows source order)
 function newQueue(kind) {
   const reviews = effectiveReviews();
-  return deck.filter((c) => kindMatch(c, kind) && !reviews[c.id]);
+  return deck.filter((c) => !isBuilder(c) && kindMatch(c, kind) && !reviews[c.id]);
 }
 
 function buildSessionQueue(filter, direction) {
@@ -120,6 +125,7 @@ function dueQueue(filter = {}) {
   const today = todayIso();
   const rows = [];
   for (const card of deck) {
+    if (isBuilder(card)) continue;
     if (filter.source && !card.source_ids.includes(filter.source)) continue;
     if (filter.kind && !kindMatch(card, filter.kind)) continue;
     if (filter.concept && card.concept_id !== filter.concept) continue;
@@ -198,6 +204,12 @@ async function sync() {
       save(LS.labels, labels);
     } catch { /* ignore */ }
 
+    // sentence_build tile inventory (read-only; absent in older data repos)
+    try {
+      const inv = await ghGetJson("data/morphemes.json");
+      save(LS.morphemes, inv.data);
+    } catch { /* ignore */ }
+
     let remote = await ghGetJson("data/reviews.json");
     if (pending.length > 0) {
       const n = new Set(pending.map((p) => p.card_id)).size;
@@ -233,7 +245,7 @@ async function sync() {
 function replayOnto(remoteReviews) {
   const merged = structuredClone(remoteReviews);
   for (const p of pending) {
-    merged[p.card_id] = applyReview(merged[p.card_id] ?? null, p.grade, p.date);
+    merged[p.card_id] = applyReview(merged[p.card_id] ?? null, p.grade, p.date, p.detail);
   }
   return merged;
 }
@@ -411,12 +423,13 @@ function renderDecks() {
 // ---------------------------------------------------------------- views & wiring
 
 function showView(name) {
-  for (const v of ["decks", "review", "settings"]) {
+  for (const v of ["decks", "review", "builder", "settings"]) {
     document.getElementById(`view-${v}`).hidden = v !== name;
   }
   document.querySelectorAll("nav button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
   if (name === "decks") renderDecks();
+  if (name === "builder") renderBuilderHome();
   if (name === "settings") setSyncStatus(syncStatusLine());
 }
 
@@ -443,6 +456,7 @@ document.getElementById("btn-save-settings").addEventListener("click", () => {
     repo: document.getElementById("set-repo").value.trim() || "turkce",
     pat: document.getElementById("set-pat").value.trim(),
     direction: document.querySelector("input[name=direction]:checked").value,
+    builderDelay: document.getElementById("set-builder-delay").checked,
   };
   save(LS.settings, settings);
   setSyncStatus("saved.");
@@ -450,11 +464,27 @@ document.getElementById("btn-save-settings").addEventListener("click", () => {
 document.getElementById("btn-sync").addEventListener("click", sync);
 window.addEventListener("online", () => { if (pending.length) sync(); });
 
+// sentence-builder tab: reads the same deck + review state, records through the
+// same pending queue (detail rides along into the history entry)
+initBuilder({
+  getDeck: () => deck,
+  getReviews: effectiveReviews,
+  getMorphemes: () => load(LS.morphemes, null),
+  getSettings: () => settings,
+  label,
+  record: (cardId, grade, detail) => {
+    pending.push({ card_id: cardId, grade, date: todayIso(), detail });
+    save(LS.pending, pending);
+  },
+  onSessionEnd: () => { if (pending.length) sync(); },
+});
+
 // init
 document.getElementById("set-owner").value = settings.owner;
 document.getElementById("set-repo").value = settings.repo;
 document.getElementById("set-pat").value = settings.pat;
 document.querySelector(`input[name=direction][value="${settings.direction}"]`).checked = true;
+document.getElementById("set-builder-delay").checked = settings.builderDelay !== false;
 showView(settings.pat ? "decks" : "settings");
 if (settings.pat && navigator.onLine) sync();
 
