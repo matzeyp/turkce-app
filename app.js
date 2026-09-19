@@ -4,6 +4,7 @@
 // repo's Claude Code layer; this app shows cards, records grades, runs FSRS.
 import { applyReview, retrievability, daysBetween, todayIso } from "./fsrs.js";
 import { initBuilder, renderBuilderHome, endBuilderSession } from "./builder.js";
+import { rung, isGated, introducedOn, buildOptions, hintsFor, gradeCap } from "./scaffold.js";
 
 const LS = {
   settings: "turkce.settings",
@@ -24,6 +25,10 @@ const save = (k, v) => localStorage.setItem(k, JSON.stringify(v));
 let settings = load(LS.settings, { owner: "matzeyp", repo: "turkce", pat: "" });
 if (!settings.direction) settings.direction = "mixed";
 if (settings.builderDelay === undefined) settings.builderDelay = true;
+// scaffolding (BUILD.md §10): intro step + multiple-choice rung + hints +
+// recognition-before-production gating; newPerDay caps first-ever reviews (0 = no cap)
+if (settings.scaffold === undefined) settings.scaffold = true;
+if (settings.newPerDay === undefined) settings.newPerDay = 10;
 let deck = load(LS.deck, []);
 let labels = load(LS.labels, {});
 const label = (id) => labels[id] ?? id;
@@ -104,10 +109,31 @@ function learnedQueue(kind) {
     .map((x) => x.c);
 }
 
-// never-reviewed cards of a kind, in deck order (follows source order)
+// recognition-before-production (scaffolding): a production card waits until
+// its recognition sibling has left the multiple-choice rung
+function gated(card, reviews) {
+  if (!settings.scaffold) return false;
+  return isGated(card, reviews, deckIds());
+}
+let _deckIds = null;
+function deckIds() {
+  if (!_deckIds || _deckIds.size !== deck.length) _deckIds = new Set(deck.map((c) => c.id));
+  return _deckIds;
+}
+
+// how many never-reviewed cards may still be started today
+function newBudget(reviews) {
+  if (!settings.newPerDay) return Infinity;
+  return Math.max(settings.newPerDay - introducedOn(reviews, todayIso()), 0);
+}
+
+// never-reviewed cards of a kind, in deck order (follows source order),
+// minus gated production cards, capped by today's new-card budget
 function newQueue(kind) {
   const reviews = effectiveReviews();
-  return deck.filter((c) => !isBuilder(c) && kindMatch(c, kind) && !reviews[c.id]);
+  return deck
+    .filter((c) => !isBuilder(c) && kindMatch(c, kind) && !reviews[c.id] && !gated(c, reviews))
+    .slice(0, newBudget(reviews));
 }
 
 function buildSessionQueue(filter, direction) {
@@ -124,16 +150,18 @@ function dueQueue(filter = {}) {
   const reviews = effectiveReviews();
   const today = todayIso();
   const rows = [];
+  let budget = newBudget(reviews);
   for (const card of deck) {
     if (isBuilder(card)) continue;
     if (filter.source && !card.source_ids.includes(filter.source)) continue;
     if (filter.kind && !kindMatch(card, filter.kind)) continue;
     if (filter.concept && card.concept_id !== filter.concept) continue;
+    if (gated(card, reviews)) continue;
     const st = reviews[card.id];
-    if (!st) rows.push({ card, sort: "1~new" });
+    if (!st) { if (budget-- > 0) rows.push({ card, sort: "1~new" }); }
     else if (st.due <= today) rows.push({ card, sort: "0~" + st.due });
   }
-  rows.sort((a, b) => a.sort.localeCompare(b.sort)); // overdue first, oldest due first
+  rows.sort((a, b) => a.sort.localeCompare(b.sort)); // overdue first, oldest due first, then new
   return rows.map((r) => r.card);
 }
 
@@ -270,11 +298,16 @@ function setSyncStatus(text) {
 
 // ---------------------------------------------------------------- review session
 
-let session = { queue: [], reviewed: new Set(), flipped: false, active: false };
+// introduced: cards shown as an intro (study) card this session — they come
+// back a few cards later as a real retrieval; never persisted, so a session
+// abandoned mid-way simply re-introduces them next time.
+let session = { queue: [], reviewed: new Set(), introduced: new Set(), flipped: false, active: false,
+                mode: "recall", hints: 0 };
 
 // starts immediately — the vocab direction is a global setting, not asked per session
 function startSession(filter) {
-  session = { queue: buildSessionQueue(filter, settings.direction), reviewed: new Set(), flipped: false, active: true };
+  session = { queue: buildSessionQueue(filter, settings.direction), reviewed: new Set(),
+              introduced: new Set(), flipped: false, active: true, mode: "recall", hints: 0 };
   showView("review");
   renderCard();
 }
@@ -305,18 +338,35 @@ function renderCard() {
     if (session.reviewed.size > 0) sync(); // push grades at session end
     return;
   }
-  doneEl.hidden = true; cardEl.hidden = false; hint.hidden = false;
+  doneEl.hidden = true; cardEl.hidden = false;
   document.getElementById("btn-exit-session").hidden = false;
   session.flipped = false;
+  session.hints = 0;
+  const st = effectiveReviews()[card.id];
+
+  // ladder rung for this showing (BUILD.md §10): a never-reviewed card is
+  // studied first (intro), then comes back as multiple choice (vocab) or
+  // recall; weak vocab cards stay on multiple choice until 2 successes in a row
+  if (!settings.scaffold) session.mode = "recall";
+  else if (!st && !session.introduced.has(card.id)) session.mode = "intro";
+  else session.mode = rung(card, st);
+
+  const modeLabel = { intro: "new — read it", mc: "multiple choice", recall: "" }[session.mode];
   document.getElementById("review-progress").textContent =
-    `${session.queue.length} left · ${card.type.replace("_", " ")}`;
+    `${session.queue.length} left · ${card.type.replace("_", " ")}${modeLabel ? " · " + modeLabel : ""}`;
   document.getElementById("card-front").textContent = card.front;
-  document.getElementById("card-back").hidden = true;
   document.getElementById("card-answer").textContent = card.back;
   document.getElementById("card-explanation").textContent = card.explanation || "";
+  document.getElementById("card-hint").hidden = true;
+  document.getElementById("card-hint").textContent = "";
+  document.getElementById("mc-options").hidden = true;
+  document.getElementById("mc-options").innerHTML = "";
+  document.getElementById("intro-row").hidden = true;
+  document.getElementById("mc-next-row").hidden = true;
+  document.getElementById("hint-row").hidden = true;
+  cardEl.classList.remove("intro");
   // previous grades, revealed only with the back so the recall attempt stays unprimed
   const histEl = document.getElementById("card-history");
-  const st = effectiveReviews()[card.id];
   if (st) {
     const last = st.history[st.history.length - 1];
     const days = Math.max(daysBetween(last.date, todayIso()), 0);
@@ -327,20 +377,108 @@ function renderCard() {
   }
   histEl.hidden = !st;
   gradeRow.hidden = true;
+
+  if (session.mode === "intro") {
+    // study exposure: both sides up, no grade; the card returns shortly
+    cardEl.classList.add("intro");
+    document.getElementById("card-back").hidden = false;
+    hint.hidden = true;
+    document.getElementById("intro-row").hidden = false;
+  } else if (session.mode === "mc") {
+    document.getElementById("card-back").hidden = true;
+    hint.hidden = true;
+    renderOptions(card);
+  } else {
+    document.getElementById("card-back").hidden = true;
+    hint.hidden = false;
+    session.hintList = settings.scaffold ? hintsFor(card) : [];
+    renderHintButton();
+  }
+}
+
+// intro acknowledged: the card re-enters the queue a couple of cards later
+function introDone() {
+  const card = currentCard();
+  if (!card || session.mode !== "intro") return;
+  session.introduced.add(card.id);
+  session.queue.shift();
+  session.queue.splice(Math.min(2, session.queue.length), 0, card);
+  renderCard();
+}
+
+function renderOptions(card) {
+  const box = document.getElementById("mc-options");
+  const opts = buildOptions(card, deck, effectiveReviews());
+  box.innerHTML = opts.map((o, i) =>
+    `<button class="mc-opt" data-i="${i}" ${o.correct ? 'data-correct="1"' : ""}>${esc(o.text)}</button>`).join("");
+  box.hidden = false;
+  box.querySelectorAll(".mc-opt").forEach((b) => b.addEventListener("click", () => chooseOption(b)));
+}
+
+// multiple choice is auto-graded: correct → 1 (Hard: the format retrieves
+// less than recall, so it schedules conservatively), wrong → 0 (repeats today)
+function chooseOption(btn) {
+  if (session.flipped) return;
+  session.flipped = true;
+  const correct = btn.dataset.correct === "1";
+  btn.classList.add(correct ? "right" : "wrong");
+  document.querySelectorAll(".mc-opt").forEach((b) => {
+    b.disabled = true;
+    if (b.dataset.correct === "1") b.classList.add("right");
+  });
+  document.getElementById("card-back").hidden = false;
+  document.getElementById("mc-next-row").hidden = false;
+  document.getElementById("btn-mc-next").textContent = correct ? "correct → next" : "wrong → next";
+  session.mcGrade = correct ? 1 : 0;
+}
+
+function mcNext() {
+  const card = currentCard();
+  if (!card || session.mode !== "mc" || !session.flipped) return;
+  record(card, session.mcGrade, { mode: "mc" });
+}
+
+function renderHintButton() {
+  const row = document.getElementById("hint-row");
+  const btn = document.getElementById("btn-hint");
+  const left = session.hintList.length - session.hints;
+  row.hidden = left <= 0;
+  if (left > 0) btn.textContent = `hint: ${session.hintList[session.hints].label} (caps grade at ${gradeCap(session.hints + 1)})`;
+}
+
+// graded hints (cued recall): each one lowers the best grade available —
+// 1 hint → good at most, 2 hints → hard at most
+function showHint() {
+  if (session.mode !== "recall" || session.flipped) return;
+  if (session.hints >= session.hintList.length) return;
+  const h = session.hintList[session.hints++];
+  const el = document.getElementById("card-hint");
+  el.hidden = false;
+  el.textContent += (el.textContent ? "\n" : "") + h.text;
+  renderHintButton();
 }
 
 function flip() {
-  if (!currentCard() || session.flipped) return;
+  if (!currentCard() || session.flipped || session.mode !== "recall") return;
   session.flipped = true;
   document.getElementById("card-back").hidden = false;
   document.getElementById("flip-hint").hidden = true;
+  document.getElementById("hint-row").hidden = true;
+  const cap = gradeCap(session.hints);
+  document.querySelectorAll("#grade-row .grade").forEach((b) => { b.disabled = Number(b.dataset.grade) > cap; });
   document.getElementById("grade-row").hidden = false;
 }
 
 function grade(g) {
   const card = currentCard();
-  if (!card || !session.flipped) return;
-  pending.push({ card_id: card.id, grade: g, date: todayIso() });
+  if (!card || !session.flipped || session.mode !== "recall") return;
+  if (g > gradeCap(session.hints)) return;
+  record(card, g, session.hints ? { mode: "recall", hints: session.hints } : undefined);
+}
+
+function record(card, g, detail) {
+  pending.push(detail ? { card_id: card.id, grade: g, date: todayIso(), detail }
+                      : { card_id: card.id, grade: g, date: todayIso() });
   save(LS.pending, pending);
   session.reviewed.add(card.id);
   session.queue.shift();
@@ -446,6 +584,9 @@ document.querySelectorAll("nav button").forEach((b) =>
   }));
 document.getElementById("btn-exit-session").addEventListener("click", endSession);
 document.getElementById("card").addEventListener("click", flip);
+document.getElementById("btn-intro-done").addEventListener("click", introDone);
+document.getElementById("btn-mc-next").addEventListener("click", mcNext);
+document.getElementById("btn-hint").addEventListener("click", showHint);
 document.querySelectorAll("#grade-row .grade").forEach((b) =>
   b.addEventListener("click", () => grade(Number(b.dataset.grade))));
 document.getElementById("btn-back-to-decks").addEventListener("click", () => { session.active = false; showView("decks"); });
@@ -457,6 +598,8 @@ document.getElementById("btn-save-settings").addEventListener("click", () => {
     pat: document.getElementById("set-pat").value.trim(),
     direction: document.querySelector("input[name=direction]:checked").value,
     builderDelay: document.getElementById("set-builder-delay").checked,
+    scaffold: document.getElementById("set-scaffold").checked,
+    newPerDay: Math.max(parseInt(document.getElementById("set-new-per-day").value, 10) || 0, 0),
   };
   save(LS.settings, settings);
   setSyncStatus("saved.");
@@ -485,6 +628,8 @@ document.getElementById("set-repo").value = settings.repo;
 document.getElementById("set-pat").value = settings.pat;
 document.querySelector(`input[name=direction][value="${settings.direction}"]`).checked = true;
 document.getElementById("set-builder-delay").checked = settings.builderDelay !== false;
+document.getElementById("set-scaffold").checked = settings.scaffold !== false;
+document.getElementById("set-new-per-day").value = settings.newPerDay;
 showView(settings.pat ? "decks" : "settings");
 if (settings.pat && navigator.onLine) sync();
 

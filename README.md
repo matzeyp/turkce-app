@@ -13,6 +13,11 @@ localStorage only — it never touches this repo or any server).
 - `app.js` — review flow (front → flip → back + explanation → grade 0–3), deck picker with
   due counts by source/type/concept, settings + sync. Offline grades queue in localStorage
   and replay onto the freshly fetched remote state on sync (stale-SHA conflicts retry once).
+- `scaffold.js` — pure ladder logic for scaffolded acquisition (data repo BUILD.md §10):
+  intro step for never-reviewed cards, multiple-choice rung for vocab until 2 successes in a
+  row (correct = grade 1, wrong = 0), graded hints on recall (1 hint caps at 2, 2 hints at 1),
+  recognition-before-production gating, daily new-card budget. The rung is derived from review
+  history, never stored. Tests: `node tests/scaffold.test.mjs`.
 - `sw.js` — caches the shell for offline; never intercepts api.github.com.
 
 Deployed via GitHub Pages (main branch, root).

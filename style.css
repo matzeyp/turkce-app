@@ -144,6 +144,35 @@ nav button.active { color: var(--accent); font-weight: 600; }
 #card-history { font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 10px; }
 #flip-hint { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: 12px; }
 
+/* scaffolding: intro card, multiple choice, hints */
+#card.intro { border-color: var(--accent); }
+#card-hint { text-align: center; color: var(--accent); font-size: 1.05rem; line-height: 1.5; white-space: pre-line; letter-spacing: 0.04em; }
+#mc-options { display: grid; gap: 8px; }
+.mc-opt {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  font-size: 1rem;
+  line-height: 1.35;
+  text-align: left;
+}
+.mc-opt:disabled { opacity: 0.55; }
+.mc-opt.right { border-color: #3f8f4f; background: rgba(63, 143, 79, 0.18); opacity: 1; font-weight: 600; }
+.mc-opt.wrong { border-color: var(--accent); background: rgba(179, 69, 47, 0.18); opacity: 1; text-decoration: line-through; }
+#hint-row, #intro-row, #mc-next-row { text-align: center; margin-top: 12px; }
+#intro-row p { color: var(--muted); font-size: 0.85rem; margin-bottom: 10px; }
+#btn-hint, #btn-intro-done, #btn-mc-next {
+  padding: 12px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  font-size: 1rem;
+}
+#btn-intro-done, #btn-mc-next { width: 100%; padding: 14px 0; background: var(--accent); color: #fff; border: 0; font-weight: 600; }
+
 #grade-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -162,6 +191,7 @@ nav button.active { color: var(--accent); font-weight: 600; }
 }
 #grade-row button span { display: block; font-size: 0.7rem; font-weight: 400; color: var(--muted); }
 #grade-row button:active { background: var(--accent); color: #fff; }
+#grade-row button:disabled { opacity: 0.3; }
 
 #session-done { text-align: center; margin-top: 24px; }
 #session-done button, #view-settings button {
