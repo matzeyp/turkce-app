@@ -77,7 +77,7 @@ export function renderBuilderHome() {
 
 function startBuilderSession(mode) {
   const queue = mode === "all" ? shuffle([...builderCards()]) : dueBuilderQueue();
-  s = { queue, reviewed: new Set() };
+  s = { queue, total: new Set(queue.map((c) => c.id)).size, reviewed: new Set() };
   $("builder-home").hidden = true;
   $("builder-play").hidden = false;
   nextCard();
@@ -94,6 +94,8 @@ function nextCard() {
   const card = s.queue[0];
   $("builder-result").hidden = true;
   $("builder-done").hidden = true;
+  document.querySelector("main").scrollTop = 0;
+  $("builder-bar").hidden = !card;
   if (!card) {
     $("builder-done").hidden = false;
     $("builder-summary").textContent =
@@ -116,7 +118,10 @@ function nextCard() {
   };
   $("builder-actions").hidden = false;
   $("builder-feedback").textContent = "";
-  $("builder-progress").textContent = `${s.queue.length} left · sentence build`;
+  // done = cards gone from the queue for good (a revealed card comes back)
+  const done = s.total - new Set(s.queue.map((c) => c.id)).size;
+  $("builder-progress").textContent = `${done}/${s.total} · sentence build`;
+  $("builder-bar").firstElementChild.style.width = `${(100 * done) / s.total}%`;
   $("builder-prompt").textContent = card.front;
   renderPlay();
 }

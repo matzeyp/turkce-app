@@ -24,6 +24,9 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
+  /* dvh = the actually visible viewport on iOS (100% can include hidden browser chrome) */
+  height: 100dvh;
+  overscroll-behavior: none;
   font-family: system-ui, -apple-system, sans-serif;
   background: var(--bg);
   color: var(--fg);
@@ -119,6 +122,8 @@ nav button.active { color: var(--accent); font-weight: 600; }
 /* review */
 #review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; min-height: 32px; }
 #review-progress { color: var(--muted); font-size: 0.85rem; }
+.progress-bar { height: 4px; border-radius: 2px; background: var(--line); margin-bottom: 12px; overflow: hidden; }
+.progress-bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.25s; }
 #btn-exit-session {
   border: 0;
   background: none;

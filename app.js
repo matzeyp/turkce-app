@@ -50,12 +50,20 @@ const isVocab = (c) => c.type === "vocab_recognition" || c.type === "vocab_produ
 // sentence_build cards live in their own tab; the review flow never serves them
 const isBuilder = (c) => c.type === "sentence_build";
 
+// source membership: a vocab card belongs to every source its word was sighted
+// in (the word really occurs there), but a concept card (breakdown/grammar)
+// only to its origin — source_ids is append-only, so [0] is where the card's
+// content (its example line, its form) comes from. Later sightings of the
+// concept elsewhere would otherwise drag e.g. Veysel lines into Hoca.
+const inSource = (c, source) =>
+  isVocab(c) ? c.source_ids.includes(source) : c.source_ids[0] === source;
+
 function allVocabCards(source) {
-  return deck.filter((c) => isVocab(c) && c.source_ids.includes(source));
+  return deck.filter((c) => isVocab(c) && inSource(c, source));
 }
 
 function allConceptCards(source) {
-  return deck.filter((c) => !isBuilder(c) && c.concept_id && c.source_ids.includes(source));
+  return deck.filter((c) => !isBuilder(c) && c.concept_id && inSource(c, source));
 }
 
 function shuffle(arr) {
@@ -69,9 +77,12 @@ function shuffle(arr) {
 // direction: 'mixed' keeps each word once (random direction when both exist),
 // 'tr-en' keeps only recognition cards, 'en-tr' only production. Non-vocab
 // cards always pass through.
+const directionOk = (c, direction = settings.direction) =>
+  !isVocab(c) || direction === "mixed"
+  || c.type === (direction === "tr-en" ? "vocab_recognition" : "vocab_production");
+
 function applyDirection(cards, direction) {
-  if (direction === "tr-en") return cards.filter((c) => !isVocab(c) || c.type === "vocab_recognition");
-  if (direction === "en-tr") return cards.filter((c) => !isVocab(c) || c.type === "vocab_production");
+  if (direction !== "mixed") return cards.filter((c) => directionOk(c, direction));
   const result = [];
   const slotByWord = new Map(); // base card id (word) -> index in result
   for (const c of cards) {
@@ -99,7 +110,7 @@ function learnedQueue(kind) {
   const reviews = effectiveReviews();
   const today = todayIso();
   return deck
-    .filter((c) => !isBuilder(c) && kindMatch(c, kind) && reviews[c.id])
+    .filter((c) => !isBuilder(c) && kindMatch(c, kind) && directionOk(c) && reviews[c.id])
     .map((c) => {
       const st = reviews[c.id];
       const last = st.history[st.history.length - 1].date;
@@ -128,12 +139,15 @@ function newBudget(reviews) {
 }
 
 // never-reviewed cards of a kind, in deck order (follows source order),
-// minus gated production cards, capped by today's new-card budget
-function newQueue(kind) {
+// minus gated production cards and the other vocab direction, capped by
+// today's new-card budget (uncapped: everything currently unlocked). The
+// direction filter must run before the cap, or the budget fills with cards
+// the session then drops.
+function newQueue(kind, { uncapped = false } = {}) {
   const reviews = effectiveReviews();
-  return deck
-    .filter((c) => !isBuilder(c) && kindMatch(c, kind) && !reviews[c.id] && !gated(c, reviews))
-    .slice(0, newBudget(reviews));
+  const cards = deck.filter((c) => !isBuilder(c) && kindMatch(c, kind) && directionOk(c)
+    && !reviews[c.id] && !gated(c, reviews));
+  return uncapped ? cards : cards.slice(0, newBudget(reviews));
 }
 
 function buildSessionQueue(filter, direction) {
@@ -153,8 +167,9 @@ function dueQueue(filter = {}) {
   let budget = newBudget(reviews);
   for (const card of deck) {
     if (isBuilder(card)) continue;
-    if (filter.source && !card.source_ids.includes(filter.source)) continue;
+    if (filter.source && !inSource(card, filter.source)) continue;
     if (filter.kind && !kindMatch(card, filter.kind)) continue;
+    if (!directionOk(card)) continue;
     if (filter.concept && card.concept_id !== filter.concept) continue;
     if (gated(card, reviews)) continue;
     const st = reviews[card.id];
@@ -306,7 +321,8 @@ let session = { queue: [], reviewed: new Set(), introduced: new Set(), flipped: 
 
 // starts immediately — the vocab direction is a global setting, not asked per session
 function startSession(filter) {
-  session = { queue: buildSessionQueue(filter, settings.direction), reviewed: new Set(),
+  const queue = buildSessionQueue(filter, settings.direction);
+  session = { queue, total: new Set(queue.map((c) => c.id)).size, reviewed: new Set(),
               introduced: new Set(), flipped: false, active: true, mode: "recall", hints: 0 };
   showView("review");
   renderCard();
@@ -328,6 +344,8 @@ function renderCard() {
   const cardEl = document.getElementById("card");
   const gradeRow = document.getElementById("grade-row");
   const hint = document.getElementById("flip-hint");
+  document.querySelector("main").scrollTop = 0;
+  document.getElementById("review-bar").hidden = !card;
   if (!card) {
     cardEl.hidden = true; gradeRow.hidden = true; hint.hidden = true;
     document.getElementById("btn-exit-session").hidden = true;
@@ -351,9 +369,12 @@ function renderCard() {
   else if (!st && !session.introduced.has(card.id)) session.mode = "intro";
   else session.mode = rung(card, st);
 
+  // done = cards gone from the queue for good (failed and intro cards come back)
+  const done = session.total - new Set(session.queue.map((c) => c.id)).size;
   const modeLabel = { intro: "new — read it", mc: "multiple choice", recall: "" }[session.mode];
   document.getElementById("review-progress").textContent =
-    `${session.queue.length} left · ${card.type.replace("_", " ")}${modeLabel ? " · " + modeLabel : ""}`;
+    `${done}/${session.total} · ${card.type.replace("_", " ")}${modeLabel ? " · " + modeLabel : ""}`;
+  document.querySelector("#review-bar > div").style.width = `${(100 * done) / session.total}%`;
   document.getElementById("card-front").textContent = card.front;
   document.getElementById("card-answer").textContent = card.back;
   document.getElementById("card-explanation").textContent = card.explanation || "";
@@ -509,23 +530,29 @@ function renderDecks() {
   const header = (title, backNav) =>
     `<div class="picker-header"><button class="back-btn" data-nav='${JSON.stringify(backNav)}'>‹</button>
        <h1 lang="tr">${esc(title)}</h1></div>`;
-  const sectionRows = (kind) => `<div class="deck-group">
-    ${filterItem("due", dueQueue({ kind }).length, { kind })}
-    ${filterItem("repeat learned — weakest first", learnedQueue(kind).length, { kind, mode: "learned" })}
-    ${filterItem("learn new", newQueue(kind).length, { kind, mode: "new" })}
+  // counts are the session size: same queue, same direction pass (mixed keeps a word once)
+  const n = (cards) => applyDirection(cards, settings.direction).length;
+  const sectionRows = (kind) => {
+    const today = n(newQueue(kind)), waiting = n(newQueue(kind, { uncapped: true }));
+    const newText = waiting > today ? `learn new — ${today} of ${waiting} (daily cap)` : "learn new";
+    return `<div class="deck-group">
+    ${filterItem("due", n(dueQueue({ kind })), { kind })}
+    ${filterItem("repeat learned — weakest first", n(learnedQueue(kind)), { kind, mode: "learned" })}
+    ${filterItem(newText, today, { kind, mode: "new" })}
   </div>`;
+  };
 
   const sourceIds = [...new Set(deck.flatMap((c) => c.source_ids))];
   let html;
 
   if (picker.screen === "home") {
-    const dueAll = dueQueue({}).length;
+    const dueAll = n(dueQueue({}));
     html = `<h1>türkçe</h1>
       <button id="btn-review-all" data-filter='{}' ${dueAll === 0 ? "disabled" : ""}>
         review<span class="count">${dueAll} due + new</span></button>
       <div class="deck-group"><h2>browse</h2>
-        ${navItem("vocab", `${dueQueue({ kind: "vocab" }).length} due`, { screen: "vocab" })}
-        ${navItem("concepts", `${dueQueue({ kind: "concept" }).length} due`, { screen: "concepts" })}
+        ${navItem("vocab", `${n(dueQueue({ kind: "vocab" }))} due`, { screen: "vocab" })}
+        ${navItem("concepts", `${n(dueQueue({ kind: "concept" }))} due`, { screen: "concepts" })}
         ${navItem("sources", `${sourceIds.length}`, { screen: "sources" })}
       </div>`;
   } else if (picker.screen === "vocab") {
@@ -537,16 +564,16 @@ function renderDecks() {
       if (c.concept_id) perConcept.set(c.concept_id, perConcept.get(c.concept_id) + 1);
     html = header("concepts", { screen: "home" }) + sectionRows("concept")
       + `<div class="deck-group"><h2>single concept — due</h2>${
-        [...perConcept].map(([c, n]) => filterItem(label(c), n, { concept: c })).join("")}</div>`;
+        [...perConcept].map(([c, due]) => filterItem(label(c), due, { concept: c })).join("")}</div>`;
   } else if (picker.screen === "sources") {
     html = header("sources", { screen: "home" }) + `<div class="deck-group">${
-      sourceIds.map((s) => navItem(label(s), `${dueQueue({ source: s }).length} due`,
+      sourceIds.map((s) => navItem(label(s), `${n(dueQueue({ source: s }))} due`,
         { screen: "source", id: s })).join("")}</div>`;
   } else { // one source
     const s = picker.id;
     html = header(label(s), { screen: "sources" }) + `<div class="deck-group">
-      ${filterItem("due", dueQueue({ source: s }).length, { source: s })}
-      ${filterItem("practice — all vocab", allVocabCards(s).length, { source: s, practiceAll: true })}
+      ${filterItem("due", n(dueQueue({ source: s })), { source: s })}
+      ${filterItem("practice — all vocab", n(allVocabCards(s)), { source: s, practiceAll: true })}
       ${filterItem("practice — all concepts", allConceptCards(s).length, { source: s, practiceAll: "concepts" })}
     </div>`;
   }
@@ -561,6 +588,9 @@ function renderDecks() {
 // ---------------------------------------------------------------- views & wiring
 
 function showView(name) {
+  // main scrolls as one box; a scroll offset left over from the previous view
+  // would start the new one with its header tucked under the status bar
+  document.querySelector("main").scrollTop = 0;
   for (const v of ["decks", "review", "builder", "settings"]) {
     document.getElementById(`view-${v}`).hidden = v !== name;
   }
