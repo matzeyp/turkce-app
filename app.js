@@ -152,14 +152,50 @@ function newQueue(kind, { uncapped = false } = {}) {
   return uncapped ? cards : cards.slice(0, newBudget(reviews));
 }
 
+// "practice all" of a source: what FSRS wants now comes first — due cards,
+// weakest recall first, then never-reviewed ones; cards not due yet (recently
+// learned or known) are held back as `rest`, offered at the end of the session
+function splitWorthy(cards) {
+  const reviews = effectiveReviews();
+  const today = todayIso();
+  const recall = (c) => {
+    const st = reviews[c.id];
+    return retrievability(Math.max(daysBetween(st.history[st.history.length - 1].date, today), 0),
+                          st.stability);
+  };
+  const weakestFirst = (cs) => cs.map((c) => ({ c, r: recall(c) })).sort((a, b) => a.r - b.r).map((x) => x.c);
+  const due = [], fresh = [], rest = [];
+  for (const c of cards) {
+    const st = reviews[c.id];
+    if (!st) fresh.push(c);
+    else if (st.due <= today) due.push(c);
+    else rest.push(c);
+  }
+  return { worthy: [...weakestFirst(due), ...shuffle(fresh)], rest: weakestFirst(rest) };
+}
+
+// split before the direction pass, so under 'mixed' a word whose card in one
+// direction is due/new is asked that way rather than via its not-due sibling;
+// the rest drops words already asked. Counts are thus stable across calls.
+function practiceSplit(cards, direction) {
+  const { worthy, rest } = splitWorthy(cards);
+  const queue = applyDirection(worthy, direction);
+  const word = (c) => c.id.replace(/_(recog|prod)$/, "");
+  const asked = new Set(queue.filter(isVocab).map(word));
+  return { queue, rest: applyDirection(rest.filter((c) => !isVocab(c) || !asked.has(word(c))), direction) };
+}
+
+// returns { queue, rest }; rest is non-empty only for "practice all"
 function buildSessionQueue(filter, direction) {
+  if (filter.practiceAll) {
+    const all = filter.practiceAll === "concepts" ? allConceptCards(filter.source) : allVocabCards(filter.source);
+    return practiceSplit(all, direction);
+  }
   const cards =
-    filter.practiceAll === "concepts" ? shuffle(allConceptCards(filter.source))
-    : filter.practiceAll ? shuffle(allVocabCards(filter.source))
-    : filter.mode === "learned" ? learnedQueue(filter.kind)
+    filter.mode === "learned" ? learnedQueue(filter.kind)
     : filter.mode === "new" ? newQueue(filter.kind)
     : dueQueue(filter);
-  return applyDirection(cards, direction);
+  return { queue: applyDirection(cards, direction), rest: [] };
 }
 
 function dueQueue(filter = {}) {
@@ -318,13 +354,13 @@ function setSyncStatus(text) {
 // introduced: cards shown as an intro (study) card this session — they come
 // back a few cards later as a real retrieval; never persisted, so a session
 // abandoned mid-way simply re-introduces them next time.
-let session = { queue: [], reviewed: new Set(), introduced: new Set(), flipped: false, active: false,
+let session = { queue: [], rest: [], reviewed: new Set(), introduced: new Set(), flipped: false, active: false,
                 mode: "recall", hints: 0 };
 
 // starts immediately — the vocab direction is a global setting, not asked per session
 function startSession(filter) {
-  const queue = buildSessionQueue(filter, settings.direction);
-  session = { queue, total: new Set(queue.map((c) => c.id)).size, reviewed: new Set(),
+  const { queue, rest } = buildSessionQueue(filter, settings.direction);
+  session = { queue, rest, total: new Set(queue.map((c) => c.id)).size, reviewed: new Set(),
               introduced: new Set(), flipped: false, active: true, mode: "recall", hints: 0 };
   showView("review");
   renderCard();
@@ -335,6 +371,17 @@ function startSession(filter) {
 function endSession() {
   if (session.reviewed.size === 0) { session.active = false; showView("decks"); return; }
   session.queue = [];
+  session.rest = []; // an explicit exit is not an invitation to continue
+  renderCard();
+}
+
+// practice past what is due: the held-back cards become the queue; the bar
+// keeps counting on (total grows by exactly what is added)
+function continueRest() {
+  if (!session.rest.length) return;
+  session.queue = session.rest;
+  session.total += new Set(session.rest.map((c) => c.id)).size;
+  session.rest = [];
   renderCard();
 }
 
@@ -355,6 +402,10 @@ function renderCard() {
     document.getElementById("review-progress").textContent = "";
     document.getElementById("session-summary").textContent =
       session.reviewed.size === 0 ? "nothing due 🎉" : `session done — ${session.reviewed.size} cards reviewed`;
+    const more = session.rest.length;
+    const moreBtn = document.getElementById("btn-continue-rest");
+    moreBtn.hidden = more === 0;
+    moreBtn.textContent = `continue — ${more} not due yet (recently learned / known)`;
     if (session.reviewed.size > 0) sync(); // push grades at session end
     return;
   }
@@ -534,6 +585,14 @@ function renderDecks() {
        <h1 lang="tr">${esc(title)}</h1></div>`;
   // counts are the session size: same queue, same direction pass (mixed keeps a word once)
   const n = (cards) => applyDirection(cards, settings.direction).length;
+  // practice-all: badge = due + new now; the held-back rest is named in the label
+  const practiceItem = (text, cards, filter) => {
+    const { queue, rest } = practiceSplit(cards, settings.direction);
+    const label = rest.length ? `${text} · +${rest.length} not due` : text;
+    return `<button class="deck-item" data-filter='${JSON.stringify(filter)}'
+       ${queue.length + rest.length === 0 ? "disabled" : ""}>
+       <span lang="tr">${esc(label)}</span><span class="count">${queue.length}</span></button>`;
+  };
   const sectionRows = (kind) => {
     const today = n(newQueue(kind)), waiting = n(newQueue(kind, { uncapped: true }));
     const newText = waiting > today ? `learn new — ${today} of ${waiting} (daily cap)` : "learn new";
@@ -575,8 +634,8 @@ function renderDecks() {
     const s = picker.id;
     html = header(label(s), { screen: "sources" }) + `<div class="deck-group">
       ${filterItem("due", n(dueQueue({ source: s })), { source: s })}
-      ${filterItem("practice — all vocab", n(allVocabCards(s)), { source: s, practiceAll: true })}
-      ${filterItem("practice — all concepts", allConceptCards(s).length, { source: s, practiceAll: "concepts" })}
+      ${practiceItem("practice — all vocab", allVocabCards(s), { source: s, practiceAll: true })}
+      ${practiceItem("practice — all concepts", allConceptCards(s), { source: s, practiceAll: "concepts" })}
     </div>`;
   }
 
@@ -615,6 +674,7 @@ document.querySelectorAll("nav button").forEach((b) =>
     }
   }));
 document.getElementById("btn-exit-session").addEventListener("click", endSession);
+document.getElementById("btn-continue-rest").addEventListener("click", continueRest);
 document.getElementById("card").addEventListener("click", flip);
 document.getElementById("btn-intro-done").addEventListener("click", introDone);
 document.getElementById("btn-mc-next").addEventListener("click", mcNext);
