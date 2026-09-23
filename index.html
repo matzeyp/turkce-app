@@ -55,8 +55,33 @@
 
     <section id="view-builder" hidden>
       <div id="builder-home">
-        <h1>sentence builder</h1>
-        <div class="deck-group" id="builder-lists"></div>
+        <h1>sentences</h1>
+        <div class="deck-group"><h2>build — English → Turkish</h2><div id="builder-lists"></div></div>
+        <div class="deck-group"><h2>analyse — every part of every word</h2><div id="analysis-lists"></div></div>
+      </div>
+      <div id="analysis-play" hidden>
+        <div class="play-header">
+          <div id="sa-progress" class="play-progress"></div>
+          <button id="btn-exit-analysis" class="play-exit" aria-label="end session">×</button>
+        </div>
+        <div class="progress-bar" id="sa-bar"><div></div></div>
+        <div id="sa-front" lang="tr"></div>
+        <div id="sa-words"></div>
+        <div id="sa-actions">
+          <button id="btn-sa-check">check</button>
+          <button id="btn-sa-reveal">reveal</button>
+        </div>
+        <p id="sa-feedback"></p>
+        <div id="sa-result" hidden>
+          <div id="sa-grade"></div>
+          <div id="sa-back"></div>
+          <div id="sa-explanation"></div>
+          <button id="btn-sa-next">next</button>
+        </div>
+        <div id="sa-done" hidden>
+          <p id="sa-summary"></p>
+          <button id="btn-sa-back">back</button>
+        </div>
       </div>
       <div id="builder-play" hidden>
         <div id="builder-header">
@@ -134,7 +159,7 @@
   <nav>
     <button data-view="decks">decks</button>
     <button data-view="review">review</button>
-    <button data-view="builder">builder</button>
+    <button data-view="builder">sentences</button>
     <button data-view="settings">settings</button>
   </nav>
 

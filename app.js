@@ -4,6 +4,7 @@
 // repo's Claude Code layer; this app shows cards, records grades, runs FSRS.
 import { applyReview, retrievability, daysBetween, todayIso } from "./fsrs.js";
 import { initBuilder, renderBuilderHome, endBuilderSession } from "./builder.js";
+import { initAnalysis, renderAnalysisHome } from "./analysis.js";
 import { rung, isGated, introducedOn, buildOptions, hintsFor, gradeCap } from "./scaffold.js";
 
 const LS = {
@@ -47,8 +48,9 @@ function effectiveReviews() {
 }
 
 const isVocab = (c) => c.type === "vocab_recognition" || c.type === "vocab_production";
-// sentence_build cards live in their own tab; the review flow never serves them
-const isBuilder = (c) => c.type === "sentence_build";
+// sentence_build + sentence_analysis cards live in the sentences tab; the
+// review flow never serves them
+const isBuilder = (c) => c.type === "sentence_build" || c.type === "sentence_analysis";
 
 // source membership: a vocab card belongs to every source its word was sighted
 // in (the word really occurs there), but a concept card (breakdown/grammar)
@@ -597,7 +599,7 @@ function showView(name) {
   document.querySelectorAll("nav button").forEach((b) =>
     b.classList.toggle("active", b.dataset.view === name));
   if (name === "decks") renderDecks();
-  if (name === "builder") renderBuilderHome();
+  if (name === "builder") { renderBuilderHome(); renderAnalysisHome(); }
   if (name === "settings") setSyncStatus(syncStatusLine());
 }
 
@@ -644,6 +646,18 @@ initBuilder({
   getReviews: effectiveReviews,
   getMorphemes: () => load(LS.morphemes, null),
   getSettings: () => settings,
+  label,
+  record: (cardId, grade, detail) => {
+    pending.push({ card_id: cardId, grade, date: todayIso(), detail });
+    save(LS.pending, pending);
+  },
+  onSessionEnd: () => { if (pending.length) sync(); },
+});
+
+// sentence-analysis drill (same tab, same pending queue)
+initAnalysis({
+  getDeck: () => deck,
+  getReviews: effectiveReviews,
   label,
   record: (cardId, grade, detail) => {
     pending.push({ card_id: cardId, grade, date: todayIso(), detail });
