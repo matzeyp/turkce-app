@@ -331,13 +331,33 @@ function replayOnto(remoteReviews) {
   return merged;
 }
 
+// running shell version = the service worker's cache name (sw.js CACHE), so
+// there is no second number to bump; newest wins while an old cache lingers
+let appVersion = "";
+if ("caches" in self) {
+  caches.keys().then((keys) => {
+    const nums = keys.map((k) => /^turkce-app-v(\d+)$/.exec(k)?.[1]).filter(Boolean).map(Number);
+    if (nums.length === 0) return;
+    appVersion = `v${Math.max(...nums)}`;
+    if (!syncing) setSyncStatus(syncStatusLine());
+  }).catch(() => {});
+}
+
+// stored as UTC ISO; shown in the phone's own time zone
+function localTime(iso) {
+  const d = new Date(iso);
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 function syncStatusLine() {
   const ls = load(LS.lastSync, null);
   const parts = [];
+  const ver = appVersion ? ` · ${appVersion}` : "";
   if (ls) {
-    parts.push(`last sync: ${ls.time.slice(0, 16).replace("T", " ")} ${ls.ok ? "ok" : "FAILED"}`);
+    parts.push(`last sync: ${localTime(ls.time)} ${ls.ok ? "ok" : "FAILED"}${ver}`);
     if (!ls.ok) parts.push(ls.error);
-  } else parts.push("never synced");
+  } else parts.push(`never synced${ver}`);
   if (pending.length) parts.push(`${pending.length} grades queued locally`);
   if (!navigator.onLine) parts.push("offline");
   return parts.join("\n");
