@@ -19,6 +19,21 @@ const shuffle = (arr) => {
 const isAnalysis = (c) => c.type === "sentence_analysis";
 const asked = (p) => p.kind === "stem" || p.kind === "suffix";
 
+// Answers are authored "lemma — gloss" / "TAG — meaning". While choosing, a
+// stem shows only its English and a suffix only its tag (the rest gives it
+// away); options that would then read the same keep their full text. The full
+// strings come back once the card is graded.
+const SEP = " — ";
+function shortLabel(p, text) {
+  const i = text.indexOf(SEP);
+  if (i < 0) return text;
+  return p.kind === "stem" ? text.slice(i + SEP.length) : text.slice(0, i);
+}
+function optionLabels(p, opts) {
+  const short = opts.map((o) => shortLabel(p, o));
+  return short.map((l, i) => (short.indexOf(l) !== short.lastIndexOf(l) ? opts[i] : l));
+}
+
 function analysisCards() { return ctx.getDeck().filter(isAnalysis); }
 
 // reviewed and due only: new sentences are started per source, in order
@@ -122,10 +137,11 @@ function renderWords() {
       return `<div class="sa-piece given">${surface}<span class="sa-given">${esc(p.answer)}</span></div>`;
     }
     const opts = shuffle([p.answer, ...p.distractors]);
+    const labels = optionLabels(p, opts);
     return `<div class="sa-piece ${p.kind}">${surface}
       <select data-w="${wi}" data-p="${pi}" aria-label="${esc(p.surface)}">
         <option value="">—</option>
-        ${opts.map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join("")}
+        ${opts.map((o, i) => `<option value="${esc(o)}">${esc(labels[i])}</option>`).join("")}
       </select></div>`;
   }
 }
@@ -176,6 +192,10 @@ function reveal() {
 
 function finish(grade) {
   play.done = true;
+  // every select now holds its answer: show it in full
+  for (const sel of $("sa-words").querySelectorAll("select")) {
+    sel.selectedOptions[0].textContent = pieceOf(sel).answer;
+  }
   const fe = play.firstErrors;
   ctx.record(play.card.id, grade,
     { stem_errors: fe.stem, suffix_errors: fe.suffix, retries: Math.max(play.checks - 1, 0) });
