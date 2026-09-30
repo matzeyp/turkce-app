@@ -19,19 +19,48 @@ const shuffle = (arr) => {
 const isAnalysis = (c) => c.type === "sentence_analysis";
 const asked = (p) => p.kind === "stem" || p.kind === "suffix";
 
-// Answers are authored "lemma — gloss" / "TAG — meaning". While choosing, a
-// stem shows only its English and a suffix only its tag (the rest gives it
-// away); options that would then read the same keep their full text. The full
-// strings come back once the card is graded.
+// Answers are authored "lemma — gloss" / "TAG -form — meaning". While
+// choosing, a stem shows only its English and a suffix only its bare tag
+// (lemma and form give it away: surface ıp ↔ -(y)Ip). Options sharing a tag
+// (NMLZ -mA vs -DIK, several CVBs) are told apart by their meaning with any
+// form stripped, then by the full text as a last resort. The full strings
+// come back once the card is graded.
 const SEP = " — ";
-function shortLabel(p, text) {
+
+// drop top-level (…) groups that mention a form: "(-(y)IncA)", "(archaic -A)"
+function stripForms(text) {
+  let out = "", group = "", depth = 0;
+  for (const ch of text) {
+    if (ch === "(") depth++;
+    if (depth > 0) group += ch; else out += ch;
+    if (ch === ")" && depth > 0 && --depth === 0) {
+      if (!/(^|[\s(])-/.test(group.slice(1))) out += group;
+      group = "";
+    }
+  }
+  return (out + group).replace(/\s+/g, " ").trim();
+}
+
+function labelTiers(p, text) {
   const i = text.indexOf(SEP);
-  if (i < 0) return text;
-  return p.kind === "stem" ? text.slice(i + SEP.length) : text.slice(0, i);
+  if (i < 0) return [text];
+  if (p.kind === "stem") return [text.slice(i + SEP.length), text];
+  const head = text.slice(0, i);
+  // drop form tokens (-DIK, -(y)An, (particle)) unless the head is only a form (-lI)
+  const tag = head.split(" ").filter((t) => !/^[-(]/.test(t)).join(" ") || head;
+  return [tag, `${tag}${SEP}${stripForms(text.slice(i + SEP.length))}`, text];
 }
 function optionLabels(p, opts) {
-  const short = opts.map((o) => shortLabel(p, o));
-  return short.map((l, i) => (short.indexOf(l) !== short.lastIndexOf(l) ? opts[i] : l));
+  const tiers = opts.map((o) => labelTiers(p, o));
+  const level = opts.map(() => 0);
+  const label = (i) => tiers[i][Math.min(level[i], tiers[i].length - 1)];
+  for (let round = 0; round < 3; round++) {
+    const ls = opts.map((_, i) => label(i));
+    const clash = ls.map((l) => ls.indexOf(l) !== ls.lastIndexOf(l));
+    if (!clash.includes(true)) break;
+    clash.forEach((c, i) => { if (c) level[i]++; });
+  }
+  return opts.map((_, i) => label(i));
 }
 
 function analysisCards() { return ctx.getDeck().filter(isAnalysis); }
