@@ -738,5 +738,13 @@ showView(settings.pat ? "decks" : "settings");
 if (settings.pat && navigator.onLine) sync();
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("./sw.js");
+  // a new worker takes over in the background right after launch: reload once
+  // so this launch already runs the new shell (grades live in localStorage, and
+  // the window is short so a card in progress is never yanked away)
+  const launched = Date.now();
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (hadController && Date.now() - launched < 15000) location.reload();
+  });
+  navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
 }

@@ -1,11 +1,15 @@
 // Service worker: cache the app shell for offline use. Data (deck/reviews)
 // lives in localStorage, and api.github.com is never intercepted.
-const CACHE = "turkce-app-v14";
+const CACHE = "turkce-app-v15";
 const SHELL = ["./", "./index.html", "./app.js", "./fsrs.js", "./builder.js", "./analysis.js", "./scaffold.js",
                "./phonology.js", "./style.css", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: "reload" bypasses the HTTP cache (Pages serves max-age=600), so a
+  // new version never gets installed with the previous version's files
+  e.waitUntil(caches.open(CACHE)
+    .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: "reload" }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener("activate", (e) => {
